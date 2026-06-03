@@ -100,6 +100,36 @@ def eps_surprise(symbol: str) -> pd.DataFrame:
     return df.reset_index(drop=True)
 
 
+OPTHIST = DATA / "options_history"
+
+
+@functools.lru_cache(maxsize=256)
+def options_chain(symbol: str) -> pd.DataFrame:
+    """Single-name historical option chain (IV + greeks + bid/ask) downloaded from DoltHub via
+    fetch_options_history.py. Columns match the local index-options schema (type/strike/expiration/
+    implied_volatility/greeks). Empty frame if not yet downloaded."""
+    f = OPTHIST / f"{symbol}.parquet"
+    if not f.exists():
+        return pd.DataFrame()
+    df = pd.read_parquet(f)
+    df["date"] = pd.to_datetime(df["date"]).dt.normalize()
+    df["expiration"] = pd.to_datetime(df["expiration"]).dt.normalize()
+    return df
+
+
+def options_asof(symbol: str, asof: pd.Timestamp | None = None) -> pd.DataFrame:
+    """The most recent option chain on or before `asof` (point-in-time): the single-name analog
+    of the index chains, for term-structure / skew / RND on individual names."""
+    df = options_chain(symbol)
+    if df.empty:
+        return df
+    if asof is not None:
+        df = df[df["date"] <= pd.Timestamp(asof)]
+    if df.empty:
+        return df
+    return df[df["date"] == df["date"].max()].reset_index(drop=True)
+
+
 def known_income(symbol: str, asof: pd.Timestamp) -> pd.DataFrame:
     """Income-statement rows whose results were already public on `asof`."""
     df = income_statement(symbol)

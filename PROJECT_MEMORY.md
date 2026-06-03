@@ -536,3 +536,25 @@ EXEC: framework is research/paper only (book.py emits target weights, no router)
    (ib_async), paper-first, with Almgren-Chriss/midpoint exec + Bk07 drawdown protocol as a new
    EXECUTION lane. Options data: index from local parquet, single-name OI from delayed CBOE JSON
    (forward-only); 120-DTE term-structure blocked -> needs ORATS/Polygon for historical IV surface.
+
+## DOWNLOADABLE HISTORICAL DATA + MULTI-SOURCE LAYER (2026-06-03 pt.7)
+User: "all data is from DoltHub" + an Alpha Vantage key. Built the missing-history fetch + the
+multi-source cross-check layer ("as described"). Findings (all verified):
+- SOURCE for single-name options HISTORY = DoltHub post-no-preference/options (same provider as
+  earnings). Free SQL API (branch=master), table option_chain PK leads with `date` -> query ONE
+  DATE at a time for the watchlist (fast ~2s); symbol-only scans time out. Coverage 2019-01..2024-06.
+  fetch_options_history.py downloads watchlist x date-range -> data/options_history/{SYM}.parquet
+  (resumable). data.options_chain()/options_asof() accessors added.
+- CROSS-CHECK (sources.py cross_check_options): DoltHub SPY IV vs local index SPY IV = 8108 matched
+  contracts, median |IV diff| 0.010 (1 vol pt) -> sources AGREE, new source trustworthy.
+- LIMITATION (honest): DoltHub option_chain has IV + greeks + bid/ask but NO open_interest, and only
+  NEAR-dated expirations (<=~50 DTE). So it UNBLOCKS single-name skew/RR25 + RND + a NEAR-CURVE slope
+  (7-21d vs 30-50d), but NOT the 120-DTE term-structure slope nor single-name OI. Those need a PAID
+  chain provider (ORATS/Polygon, or AV premium).
+- The AV key (1XZ6P80...) is a valid Alpha Vantage FREE key: HISTORICAL_OPTIONS is PREMIUM-gated
+  (can't fill the far-chain/OI gap), but TIME_SERIES_DAILY works -> wired as the SECOND price source
+  for sources.cross_check_prices (local ohlcv vs AV: AAPL 93d, return-diff 0.0, corr 1.0 -> agree).
+  Stored in env as ALPHAVANTAGE_API_KEY (not hardcoded). Stooq is now apikey-gated (dead as free src).
+- sources.vol_surface(sym,asof): single-name near-curve IV + slope + RR25 from DoltHub history.
+NET: the missing downloadable history (single-name IV/greeks/skew) is now fetchable, validated against
+existing data, and the multi-source price cross-check is live. OI + 120-DTE remain paid-only (stated).
