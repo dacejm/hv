@@ -558,3 +558,12 @@ multi-source cross-check layer ("as described"). Findings (all verified):
 - sources.vol_surface(sym,asof): single-name near-curve IV + slope + RR25 from DoltHub history.
 NET: the missing downloadable history (single-name IV/greeks/skew) is now fetchable, validated against
 existing data, and the multi-source price cross-check is live. OI + 120-DTE remain paid-only (stated).
+
+## CORRECTION: single-name options history was ALREADY LOCAL (2026-06-03 pt.7b)
+The single-name options history I "downloaded" was already present: data/options data/parquet/
+option_chain/ = full local DoltHub clone, 2,274 names, 2019-02 -> 2026-05 (MORE current than the
+public API's 2024-06). The `vol` column IS implied vol (old hv-data-inventory note mislabeled it
+"no IV"). Repointed data.options_chain() at the local clone (deleted the redundant data/options_
+history/ download). Confirmed limits hold on the FULL clone too: expirations cap ~66 DTE, NO OI.
+So fetch_options_history.py is just a bootstrap if the clone is missing. Net: single-name skew/
+RR25/RND/near-curve are available for ALL 2274 names from existing local data -- no fetch needed.

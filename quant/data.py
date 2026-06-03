@@ -100,18 +100,23 @@ def eps_surprise(symbol: str) -> pd.DataFrame:
     return df.reset_index(drop=True)
 
 
-OPTHIST = DATA / "options_history"
+# The full local DoltHub clone (post-no-preference/options): 2,274 single names, 2019->2026-05.
+# Has IV (`vol`) + greeks + bid/ask, but NO open_interest and only near-dated expirations (<=~66
+# DTE). This is the complete, current source -- fetch_options_history.py is only a bootstrap if the
+# clone is absent (and the public API is staler than this clone, to 2024-06).
+OPTHIST = DATA / "options data" / "parquet" / "option_chain"
 
 
 @functools.lru_cache(maxsize=256)
 def options_chain(symbol: str) -> pd.DataFrame:
-    """Single-name historical option chain (IV + greeks + bid/ask) downloaded from DoltHub via
-    fetch_options_history.py. Columns match the local index-options schema (type/strike/expiration/
-    implied_volatility/greeks). Empty frame if not yet downloaded."""
+    """Single-name historical option chain (IV + greeks + bid/ask) from the local DoltHub clone.
+    Columns normalized to the index-options schema (type / implied_volatility / greeks). `vol` in
+    the source IS implied vol. Empty frame if the symbol isn't in the clone."""
     f = OPTHIST / f"{symbol}.parquet"
     if not f.exists():
         return pd.DataFrame()
-    df = pd.read_parquet(f)
+    df = pd.read_parquet(f).rename(columns={"call_put": "type", "vol": "implied_volatility"})
+    df["type"] = df["type"].astype(str).str.lower()
     df["date"] = pd.to_datetime(df["date"]).dt.normalize()
     df["expiration"] = pd.to_datetime(df["expiration"]).dt.normalize()
     return df
