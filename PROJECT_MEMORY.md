@@ -464,3 +464,23 @@ Measured 16,808 events / 1200 random symbols (2020-2026; earnings_calendar start
 This complements candidates.py's cross-sectional sue=weak finding: raw SUE cross-section is weak,
 but the DIRECTIONAL/event view shows a real downside drift the long side masks. pead.py pushed to
 the github review repo.
+
+## PEAD — PROPER deflated gauntlet OVERTURNS the event study (2026-06-03 pt.4)
+Ran pead.gauntlet() full universe (5,654 syms, ~83k events): (A) cross-sectional sector-neutral IC
+of signed surprise vs fwd excess, t>=3/Bonferroni/IS-OOS; (B) NON-OVERLAPPING quarterly tercile
+portfolio (63d hold ~ 1 quarter -> honest t).
+RESULTS:
+(A) surprise IC fails the bar at every horizon: best h=63 IC +0.016 t=2.15 (< t3 and < Bonferroni
+    2.5), OOS/IS 0.24 (decays hard). Surprise does not clear cross-sectionally.
+(B) long_beat  q+6.6% t 1.52 Sharpe 0.63 hit 61% IS+0.047 OOS+0.104 (positive, STRENGTHENS OOS)
+    short_miss q-4.6% t -2.06 Sharpe -0.86 hit 48%  (SIGNIFICANTLY LOSES)
+    long_short q+2.0% t 0.48 Sharpe 0.20 (not significant)
+THE LESSON (why "always do proper tests"): the event-study median/hit-rate said "misses drift down
+60% -> short them; beats fade -> avoid". The proper MEAN, non-overlapping, sector-neutral test says
+the OPPOSITE: shorting misses LOSES with t -2.06 (missed-earnings names have fat right-tail rebounds
+that crush the short despite a >50% median); the only encouraging leg is LONG big beats (mean+6.6%,
+hit 61%, OOS-positive) -- but t=1.52, does NOT clear t3, so it's WATCH/weak, not validated. Median
+!= mean under fat tails; the event study would have led to a losing trade. Confirms candidates.py
+(sue weak ~0.02 @63d). NET: PEAD/surprise = not a validated signal; the TradingView confirmation
+gate adds nothing AND the tradeable direction is the reverse of what hit-rate implied. Nothing wired.
+SAVED standing preference -> memory/proper-tests-always.md (deflated/non-overlapping, never hit-rate).
