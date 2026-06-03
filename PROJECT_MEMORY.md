@@ -646,3 +646,15 @@ uncorrelated premia) is the only thing that beat the concentrated QM champion --
 corpus (risk-premia Bk16: combine uncorrelated premia -> IR*sqrt(N)). 
 EVOLUTION OF THE BOOK: ROIC L/S (lost) -> QM cap-wtd long (Sharpe 0.86) -> QM+trend vol-targeted
 (Sharpe 0.97, maxDD -20%, OOS-robust) = the current viable, profitable, diversified strategy.
+
+## BETTER STILL: ADD BTC TO THE TREND SLEEVE (2026-06-03 pt.13) — crossed Sharpe 1.0
+Goal: best strategy possible, free data ok. Trend re-engineering (multi-horizon, wide assets) DIDN'T
+help (0.95 vs 0.97). The win = NEW DATA: BTC daily (free, Binance klines, no key -> fetch_crypto.py,
+data/crypto/). Added BTC to the trend sleeve (inverse-vol scaled so it can't dominate; it's a trend
+signal long/short, not buy-hold). Standalone trend Sharpe 0.53->0.66 with BTC. Book (now QM50/trend50,
+trend=ETFs+BTC, vol-tgt 15%): Sharpe 1.02, CAGR 16.4%, maxDD -21%, OOS 1.13/0.90 -- beats the prior
+book (0.98, 1.09/0.87) on full Sharpe AND both halves. ETH adds nothing beyond BTC (too correlated).
+book.py updated: TREND_ETFS += BTCUSDT, 50/50 split, crypto loader. CAVEAT: crypto 2017-2025 was a great
+trend regime (overfit-to-crypto-bull risk); it's vol-scaled small and long/short so robust-ish, but
+size it humbly. EVOLUTION: ROIC L/S (lost) -> QM long (0.86) -> +trend (0.97) -> +BTC trend (1.02).
+NEXT: improve the EQUITY sleeve (risk-adjusted / residual momentum) -- the main return lever, untested.
