@@ -20,9 +20,9 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from quant import data
+from quant import backtest, data
 
-WINDOWS = (5, 21, 60)
+WINDOWS = (1, 5, 21, 63)                 # aligned to backtest.HORIZONS for the deflated gauntlet
 EC = data.EARN / "earnings_calendar"
 
 
@@ -56,6 +56,7 @@ def events(sym: str, spy: pd.Series) -> pd.DataFrame:
         px = data.ohlcv(sym)
     except FileNotFoundError:
         return pd.DataFrame()
+    sect = data.sectors()
     px = px.reset_index(drop=True)
     dates = px["date"].values
     sidx, sval = spy.index.values, spy.values
@@ -81,27 +82,29 @@ def events(sym: str, spy: pd.Series) -> pd.DataFrame:
         if entry_px <= 0:
             continue
         si = int(np.searchsorted(sidx, np.datetime64(px["date"].iloc[ent]), side="left"))  # SPY entry
-        row = {"symbol": sym, "ann": e["ann"], "dir": sgn, "confirmed": conf_long or conf_short}
+        # surprise as a continuous feature (winsorized %); the entry date is the panel date
+        spct = float(np.clip(e["surprise"] / abs(e["estimate"]), -2, 2)) if e["estimate"] else np.nan
+        row = {"symbol": sym, "date": px["date"].iloc[ent], "ann": e["ann"], "dir": sgn,
+               "sector": sect.get(sym, "Unknown"), "surprise": spct,
+               "confirmed": conf_long or conf_short}
         for w in WINDOWS:
             xi = ent + w
             stock = (px["close"].iloc[xi] / entry_px - 1.0) if xi < len(px) else np.nan
             mkt = (sval[si + w] / sval[si] - 1.0) if 0 <= si and si + w < len(sval) else np.nan
-            row[f"exc_{w}"] = (stock - mkt) * sgn if pd.notna(stock) and pd.notna(mkt) else np.nan
+            row[f"exc_{w}"] = (stock - mkt) if pd.notna(stock) and pd.notna(mkt) else np.nan  # UNSIGNED excess
         rows.append(row)
     return pd.DataFrame(rows)
 
 
-def run(symbols: list[str]):
+def build(symbols: list[str]) -> pd.DataFrame:
     spy = data.benchmark()
-    parts = []
-    for sym in symbols:
-        e = events(sym, spy)
-        if not e.empty:
-            parts.append(e)
-    if not parts:
-        print("no events"); return
-    df = pd.concat(parts, ignore_index=True)
+    parts = [e for sym in symbols if not (e := events(sym, spy)).empty]
+    return pd.concat(parts, ignore_index=True) if parts else pd.DataFrame()
 
+
+def run(df: pd.DataFrame):
+    if df.empty:
+        print("no events"); return
     print(f"=== PEAD reaction-entry: {len(df)} events, {df['symbol'].nunique()} symbols "
           f"({df['ann'].min().date()}->{df['ann'].max().date()}) ===")
     print("excess = (trade return - SPY) signed by direction; +ve = drift in the surprise direction.")
@@ -112,7 +115,7 @@ def run(symbols: list[str]):
             print(f"{label:32} n=0"); return
         line = f"{label:32} n={len(sub):5}"
         for w in WINDOWS:
-            x = sub[f"exc_{w}"].dropna()
+            x = (sub[f"exc_{w}"] * sub["dir"]).dropna()      # sign by trade direction = drift
             wins = x.clip(-0.5, 0.5)
             line += f" | {w}d med {x.median():+.4f} mean {wins.mean():+.4f} (hit {(x>0).mean():.0%})"
         print(line)
@@ -132,16 +135,70 @@ def run(symbols: list[str]):
     print("\n-- 60d excess by year (median, hit%) -- is the asymmetry regime-stable? --")
     df["yr"] = df["ann"].dt.year
     for yr, g in df.groupby("yr"):
-        b, m = g[g["dir"] == 1]["exc_60"].dropna(), g[g["dir"] == -1]["exc_60"].dropna()
+        b = g[g["dir"] == 1]["exc_63"].dropna()                # beats: drift = +exc (long)
+        m = (-g[g["dir"] == -1]["exc_63"]).dropna()            # misses: short drift = -exc
         if len(b) + len(m) < 20:
             continue
         print(f"  {yr}: beats n={len(b):4} med {b.median():+.4f} hit {(b>0).mean():.0%}  | "
-              f"misses n={len(m):4} med {m.median():+.4f} hit {(m>0).mean():.0%}")
+              f"short-miss n={len(m):4} med {m.median():+.4f} hit {(m>0).mean():.0%}")
 
     print("\nread: the confirmation gate earns its keep only if CONFIRMED drift clearly exceeds "
-          "REJECTED drift in the same direction. Overlapping windows inflate t -- treat hit-rate "
-          "and the confirmed-minus-rejected gap as the honest signal.")
+          "REJECTED drift in the same direction. Overlapping windows inflate t -- the gauntlet "
+          "below is the deflated, non-overlapping test.")
     return df
+
+
+def gauntlet(df: pd.DataFrame, split="2023-01-01"):
+    """The PROPER test (always, per the project rule):
+    (A) cross-sectional IC of signed surprise vs forward excess -- sector-neutral, multi-horizon,
+        t>=3 (Harvey-Liu-Zhu), Bonferroni, IS/OOS+embargo (reuses backtest.evaluate).
+    (B) NON-OVERLAPPING quarterly portfolio: each quarter, sector-neutralize surprise, form
+        terciles, and track three legs -- long-beat, short-miss, long/short. The 63d hold ~= one
+        quarter, so the quarterly series is non-overlapping -> the t-stat is honest (no window
+        overlap inflation). Reports per-quarter mean, t, annualized Sharpe, hit, and IS/OOS."""
+    panel = df.rename(columns={f"exc_{h}": f"excess_{h}" for h in WINDOWS}).copy()
+    panel = panel[panel["sector"] != "Unknown"]
+
+    print("\n=== (A) cross-sectional IC gauntlet: signed surprise vs forward excess ===")
+    res = backtest.evaluate(panel, sector_neutral=True, split=split, features=["surprise"])
+    print(res.to_string(index=False))
+    print(f"  bars: t>=3 | Bonferroni t>={res.attrs['t_bonf']} for {res.attrs['n_tests']} tests")
+
+    print("\n=== (B) non-overlapping quarterly portfolio (63d hold ~ 1 quarter) ===")
+    panel = panel.dropna(subset=["surprise", "excess_63"]).copy()
+    panel["q"] = panel["date"].dt.to_period("Q")
+    legs = {"long_beat": [], "short_miss": [], "long_short": []}
+    qs = []
+    for q, g in panel.groupby("q"):
+        if len(g) < 30:
+            continue
+        g = g.copy()
+        g["sn"] = g["surprise"] - g.groupby("sector")["surprise"].transform("mean")  # sector-neutral
+        hi = g[g["sn"] >= g["sn"].quantile(0.8)]
+        lo = g[g["sn"] <= g["sn"].quantile(0.2)]
+        if len(hi) < 3 or len(lo) < 3:
+            continue
+        lb = hi["excess_63"].mean()                 # long the big beats
+        sm = -lo["excess_63"].mean()                # short the big misses
+        legs["long_beat"].append(lb)
+        legs["short_miss"].append(sm)
+        legs["long_short"].append(lb + sm)          # dollar-neutral L/S
+        qs.append(q)
+    sp = pd.Period(pd.Timestamp(split), "Q")
+    print(f"{'leg':12} {'n_q':>4} {'q_mean':>8} {'t':>6} {'annSharpe':>10} {'hit':>5} {'IS':>8} {'OOS':>8}")
+    for name, series in legs.items():
+        s = pd.Series(series, index=qs).dropna()
+        if len(s) < 4:
+            continue
+        t = s.mean() / s.std() * np.sqrt(len(s)) if s.std() else np.nan
+        sharpe = s.mean() / s.std() * 2 if s.std() else np.nan      # quarterly->annual (~x2)
+        is_m = s[s.index < sp].mean()
+        oos_m = s[s.index > sp].mean()
+        print(f"{name:12} {len(s):4d} {s.mean():+8.4f} {t:6.2f} {sharpe:10.2f} "
+              f"{(s>0).mean():5.0%} {is_m:+8.4f} {oos_m:+8.4f}")
+    print("\nread: long_short is the tradeable spread; short_miss isolates the downside drift "
+          "(the part that worked). t and IS/OOS here are non-overlapping -> honest.")
+    return res
 
 
 if __name__ == "__main__":
@@ -150,4 +207,6 @@ if __name__ == "__main__":
     syms = {p.stem for p in EC.glob("*.parquet")}
     uni = sorted(syms & {p.stem for p in (data.EARN / "eps_history").glob("*.parquet")})
     print(f"universe: {len(uni)} symbols with earnings_calendar + eps_history\n")
-    run(uni)
+    panel = build(uni)
+    run(panel)
+    gauntlet(panel)
