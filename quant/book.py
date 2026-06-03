@@ -1,7 +1,9 @@
 """The book — the only output built purely from VALIDATED components, lanes respected.
 
-  DIRECTION (what to hold): growth_accel sector-neutral screen (screen.live_screen) ->
-                            top longs / bottom shorts. The one validated picker.
+  DIRECTION (what to hold): ROIC sector-neutral screen (screen.live_screen) -> long high-ROIC /
+                            short low-ROIC. The STRONGEST validated picker (t3.81 @63d, OOS-stable);
+                            migrated from growth_accel after a clean re-measure put that at modest
+                            t~2.4 (recorded t5.3 didn't reproduce). growth_accel kept as context.
   SIZING   (how much):      paper-grounded risk layer (quant.sizing), NOT the old binary
                             "0.5x in amplifying GEX" throttle (combo test + Bk07 showed that
                             was the wrong shape). Instead:

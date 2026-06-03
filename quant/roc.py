@@ -28,6 +28,26 @@ def revenue_roc(symbol: str, asof: pd.Timestamp | None = None) -> pd.DataFrame:
     return out
 
 
+def roic(symbol: str, asof: pd.Timestamp | None = None) -> pd.DataFrame:
+    """Return on invested capital = NOPAT / invested_capital, point-in-time. The STRONGEST
+    validated DIRECTION signal (candidates.py: sector-neutral t3.81 @63d, OOS-stable). NOPAT =
+    operating income x (1 - effective tax); invested_capital from the balance sheet. Both lagged
+    to their knowledge date (period_end + report lag) so it's never known before filing."""
+    inc = data.known_income(symbol, asof) if asof is not None else data.income_statement(symbol)
+    bs = data.balance_sheet(symbol)
+    if asof is not None:
+        bs = bs[bs["known_on"] <= pd.Timestamp(asof)]
+    if inc.empty or bs.empty:
+        return pd.DataFrame(columns=["period_end", "roic"])
+    op = pd.to_numeric(inc["income_after_depreciation_and_amortization"], errors="coerce")
+    pretax = pd.to_numeric(inc["pretax_income"], errors="coerce")
+    tax = (pd.to_numeric(inc["income_taxes"], errors="coerce") / pretax).clip(0, 0.5).fillna(0.21)
+    inc = inc.assign(nopat=op * (1 - tax))
+    m = inc[["period_end", "nopat"]].merge(bs[["period_end", "invested_capital"]], on="period_end")
+    m["roic"] = m["nopat"] / m["invested_capital"].where(m["invested_capital"] > 0)
+    return m[["period_end", "roic"]].dropna().sort_values("period_end").reset_index(drop=True)
+
+
 def revision_momentum(
     symbol: str, kind: str = "sales", horizon: str = "Current Year",
     asof: pd.Timestamp | None = None,

@@ -1,12 +1,14 @@
 """Screener / sizing layer — built ONLY from validated components.
 
-Direction (cross-sectional, sector-neutral): a composite of the two signals that
-cleared Mat's t>=3 bar -- growth_accel (his 2nd derivative) and revision (analyst
-momentum) -- plus fcf_yield as a weak, right-signed blend member. Combining
-independent low-IC signals raises IR (Grinold's Fundamental Law).
+Direction (cross-sectional, sector-neutral): rank on ROIC, the STRONGEST validated picker
+(candidates.py gauntlet: sector-neutral t3.81 @63d, OOS-stable). growth_accel was the old
+primary but a clean full-universe re-measure put it at t~2.4 (modest, doesn't clear t3) --
+the recorded t5.3 didn't reproduce -- so it's demoted to context. The equal-weight roic+
+growth_accel blend was MEASURED and DILUTES (check_blend.py), so we rank on roic ALONE and
+carry growth_accel as context, not a blend.
 
-Sizing/risk: the validated GEX vol-regime conditioner (gex.regime_state) scales
-gross exposure -- full in suppressive (pos-GEX), reduced in amplifying (neg-GEX).
+Sizing/risk: the validated GEX vol-regime conditioner (gex.regime_state) scales gross
+exposure -- full in suppressive (pos-GEX), reduced in amplifying (neg-GEX).
 """
 from __future__ import annotations
 
@@ -15,11 +17,7 @@ import pandas as pd
 
 from . import data, gex, roc
 
-# growth_accel is the single strongest validated signal (ICIR 0.92, t5.3). A naive
-# equal-weight blend with revision measurably DILUTED it (ICIR -> 0.58), so we rank on
-# growth_accel and carry revision as context. (Future: IC-weighted blend on the subset
-# of names where both signals exist -- their cross-sectional corr is only ~0.18.)
-RANK_SIGNAL = "growth_accel"
+RANK_SIGNAL = "roic"          # the strongest validated DIRECTION signal (quarterly/63d horizon)
 
 
 def _z_in_sector(df: pd.DataFrame, col: str, by) -> pd.Series:
@@ -42,16 +40,18 @@ def live_screen(asof: pd.Timestamp, universe: list[str], top: int = 25) -> dict:
     rows = []
     for sym in universe:
         try:
-            rev = roc.revenue_roc(sym, asof=asof)
+            rc = roc.roic(sym, asof=asof)                    # PRIMARY (validated, strongest)
         except FileNotFoundError:
             continue
-        rev = rev.dropna(subset=["growth_accel"])
-        if rev.empty:
+        if rc.empty:
             continue
-        rm = roc.revision_momentum(sym, asof=asof)
-        revis = rm[rm["published"] <= asof]["revision"].tail(4).mean() if not rm.empty else np.nan
+        try:
+            rev = roc.revenue_roc(sym, asof=asof).dropna(subset=["growth_accel"])
+            ga = rev.iloc[-1]["growth_accel"] if not rev.empty else np.nan
+        except FileNotFoundError:
+            ga = np.nan
         rows.append({"symbol": sym, "sector": sect.get(sym, "Unknown"),
-                     "growth_accel": rev.iloc[-1]["growth_accel"], "revision": revis})
+                     "roic": rc.iloc[-1]["roic"], "growth_accel": ga})   # growth_accel = context
     df = pd.DataFrame(rows).dropna(subset=[RANK_SIGNAL])
     df = df[df["sector"] != "Unknown"]
     counts = df["sector"].value_counts()
@@ -63,7 +63,7 @@ def live_screen(asof: pd.Timestamp, universe: list[str], top: int = 25) -> dict:
     df = df.dropna(subset=["composite"]).sort_values("composite", ascending=False)
 
     regime = gex.regime_state("SPY", asof=asof)
-    cols = ["symbol", "sector", "composite", "revision"]
+    cols = ["symbol", "sector", "composite", "roic", "growth_accel"]
     return {"asof": asof, "regime": regime,
             "longs": df.head(top)[cols].reset_index(drop=True),
             "shorts": df.tail(top)[cols].reset_index(drop=True)}
