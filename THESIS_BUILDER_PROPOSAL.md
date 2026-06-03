@@ -124,3 +124,53 @@ source→docling→summarize→tag pipeline runs. The gap is the layer that turn
    is the honest move to treat it strictly as a non-scored brainstorming aid that only ever
    *narrows attention*, never ranks conviction?
 2. **Retrieval:** embeddings/RAG vs structured manifest-filtering for grounding theses in the corpus.
+
+---
+
+## Resolved design (after external review, 2026-06-03)
+
+Two independent reviews converged; decisions locked below.
+
+**Forks — resolved:**
+- **Retrieval = structured manifest-filtering** (ticker/sector/date + recency decay [+ optional BM25
+  keyword]). Semantic RAG rejected — dense embeddings put "bullish on X / margins" next to "bearish
+  on X / margins"; opaque, unauditable. Deterministic filtering is cheaper and inspectable.
+- **Accountability = grade the TRIGGERS, not the P&L.** A thesis-engine yields few, overlapping,
+  low-N calls; return-IC will never reach t≥3 and conflates reasoning with market noise. Instead each
+  thesis commits to binary, externally-observable confirmation/invalidation events (e.g. "CPI<2.5%",
+  "ISM<48"); a job scores whether they FIRED → a Brier score / calibration of the engine's
+  forecasting. Scoreable from the economic calendar (actuals) + FRED. Return-outcome logged as
+  secondary/descriptive only. Stays permanently CONTEXT unless the trigger-calibration earns trust.
+
+**Knowledge layer (Part A):**
+- Retrieve supporting AND contradicting evidence by splitting context by publisher stance
+  (historically-bullish vs -bearish on the sector); force the model to read both.
+- Dual context: `[Recent Catalyst Evidence]` (last ~30d, recency-weighted) + `[Structural Mechanism]`
+  (a monthly-rolled per-sector "factsheet" condensed from the 1-yr corpus, flat weight).
+- Cross-publisher agreement in a tight window ⇒ `Consensus`/crowding flag ⇒ contrarian agent drafts
+  the fade.
+- Citations: every claim maps to a real manifest `hash` from the provided context, else the thesis
+  is dropped. Use summaries, never raw markdown (free-tier context limits).
+
+**Generation & ranking (Part B):**
+- Orthogonal seeds: (1) Quant — top ROIC-screen sectors; (2) Macro — current regime quadrant + its
+  premia tilts; (3) Contrarian — options-surface deficit anomalies / consensus fades.
+- Pipeline: Generator (structured-JSON draft per seed) → Falsifier/Critic (reject if invalidation is
+  vague or mechanism lacks a hard metric) → Refiner → Python cross-check vs ROIC/GEX/regime → Log.
+- Ranker (deterministic): **Final = Falsifiability(0–10) × System-Alignment(0–1)**. Alignment is a
+  Python check of thesis direction vs ROIC sign / GEX vol-state / regime tilt — a long-tech thesis
+  with bottom-decile ROIC and an amplifying GEX regime gets ×0. Contradictions surfaced as
+  "Contrarian/Divergent", not silently dropped.
+
+**Output contract (logged to data/theses_log.parquet):**
+```json
+{"thesis_id":"2026-06-03-TECH-LONG","date":"2026-06-03","sector":"Technology","direction":1,
+ "horizon_days":63,"mechanism":"...","confirmation_trigger":"CPI MoM < 0.2%",
+ "invalidation_metric":"ISM Manufacturing < 48","evidence_hashes":["..."],
+ "validated_signal_alignment":{"roic":true,"gex_regime":true,"regime_quadrant":"OVERHEAT"},
+ "falsifiability":9,"alignment":1.0,"score":9.0}
+```
+
+**Build order:** (1) structured retrieval over manifest + sector factsheets; (2) orthogonal-seed
+generation + Falsifier loop → structured-JSON theses; (3) Python alignment cross-check + deterministic
+ranker; (4) the trigger-scoring job (econ-calendar/FRED) → Brier/calibration track record.
