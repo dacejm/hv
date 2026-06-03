@@ -1,0 +1,18 @@
+# ---- data & third-party / copyrighted material (NEVER commit) ----
+data/                     # 18GB market-data parquet (licensed/large)
+discord_export/           # HarvestPremia research books — copyrighted, members-only
+research/                 # sell-side PDF summaries — copyrighted
+*.parquet
+*.csv
+
+# ---- secrets ----
+.env
+*_key*
+*secret*
+
+# ---- run artifacts ----
+*.log
+*.out
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
