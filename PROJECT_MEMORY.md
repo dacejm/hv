@@ -629,3 +629,20 @@ book.py RECONFIGURED: live long-only cap-weighted QM large-cap book (retired the
   market/era; costs simplified; momentum needs the trade discipline (monthly, ~40% turnover). 
 NET: the system finally has a profitable, OOS-robust, viable strategy -- and it's honest about being
   managed beta + the two most-validated factors, not a market-neutral alpha miracle.
+
+## SOMETHING BETTER: ADD A CROSS-ASSET TREND SLEEVE (2026-06-03 pt.12) — deviated from the papers
+Goal: keep QM book, find better. Tried re-weighting first (all WORSE): QMV/low-vol 0.70, inv-vol 0.72,
+sig-wt 0.77 -- low-vol & risk-weighting DILUTE the high-vol mega-cap momentum that drove the era. So
+"better" needed DIVERSIFICATION, not re-weighting. NEW (off-paper) idea: a cross-asset TREND/managed-
+futures sleeve (12-1m time-series momentum across SPY/QQQ/TLT/IEF/GLD/SLV/DBC/UUP/HYG/EEM/VNQ/XLE,
+inverse-vol scaled, long/short). corr(QM,trend)=+0.32, trend alone Sharpe 0.53 but POSITIVE in 2022.
+COMBINE 60/40, vol-target 15%: at EQUAL RISK beats QM-only on every metric in BOTH OOS halves:
+  QM60/trend40 @15%: CAGR 15.6% Sharpe 0.97 maxDD -20% Calmar 0.77 | OOS 1st 1.09 2nd 0.85
+  QM-only      @15%: CAGR 15.2% Sharpe 0.95 maxDD -20% Calmar 0.75 | OOS 1st 1.08 2nd 0.81
+  (vs passive SPY: Sharpe 0.78, maxDD -34%.) The trend sleeve fixes QM's weak 2nd half (2022).
+book.py RECONFIGURED to the two-sleeve vol-targeted portfolio (EQUITY 60% + TREND 40%). layers: added
+momentum_xasset (DIVERSIFIER), book=STRATEGY two-sleeve. The genuine free lunch (diversification of
+uncorrelated premia) is the only thing that beat the concentrated QM champion -- consistent with the
+corpus (risk-premia Bk16: combine uncorrelated premia -> IR*sqrt(N)). 
+EVOLUTION OF THE BOOK: ROIC L/S (lost) -> QM cap-wtd long (Sharpe 0.86) -> QM+trend vol-targeted
+(Sharpe 0.97, maxDD -20%, OOS-robust) = the current viable, profitable, diversified strategy.

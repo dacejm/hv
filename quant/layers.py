@@ -21,7 +21,8 @@ LANES = {
     "intrinsic":          ("EXPRESSION",  "valuation scenarios given a multiple view (WACC + bear/base/bull)"),
     "options_vs_stock":   ("EXPRESSION",  "3-factor surface (IVP + term-slope + RR25 skew): long vol when IV cheap; finance puts when skew steep"),
     "sizing":             ("SIZING/VOL",  "vol-target + HRP/min-var + half-Kelly; risk-layer primitives (note: vol-targeting HURT the long book in backtest -- cap-weighting beat it)"),
-    "book":               ("STRATEGY",    "THE VIABLE BOOK: long-only large-cap quality-momentum, cap-weighted, monthly. Beats SPY net of costs in BOTH OOS halves (Sharpe 0.86 vs 0.78, Calmar 0.59 vs 0.40). Enhanced beta, not market-neutral alpha"),
+    "momentum_xasset":    ("DIVERSIFIER", "cross-asset 12-1m time-series momentum (managed futures) across SPY/TLT/GLD/commodities/etc. Corr +0.32 to the equity book, positive in equity bears -> crisis ballast"),
+    "book":               ("STRATEGY",    "THE BOOK: 60% long-only large-cap quality-momentum (cap-wtd) + 40% cross-asset trend, vol-targeted ~15%. Beats QM-only AND SPY at equal risk in BOTH OOS halves (Sharpe 0.97 vs 0.95/0.78; maxDD -20% vs -34%). Enhanced beta + factor tilt + diversifying trend overlay"),
     # CONTEXT — orient / idea-generate / label; NEVER a buy signal, NEVER sizes
     "regime":             ("CONTEXT",     "4-quadrant growth x inflation + per-quadrant premia tilt; MACRO x adds nothing to returns -> display only"),
     "screeners":          ("CONTEXT",     "momentum x regime attention board (momentum=noise@21d) -> not a buy list"),
