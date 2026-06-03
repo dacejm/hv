@@ -597,3 +597,17 @@ RE-GRADE (honest): NOTHING in the stack has cleared the P&L bar. ROIC = IC-posit
   (McLean-Pontiff decay, Harvey-Liu-Zhu false factors, low realistic IR). 
 NEXT (fair test before burying ROIC): large-cap-only universe (no microcap-junk squeeze on the short)
   + long-only quality + cost/quintile sensitivity. Not expected to rescue, but it's the honest check.
+
+## LARGE-CAP RESCUE TEST (2026-06-03 pt.10) — partial, sub-threshold
+book_backtest.py 500 (top-500 by point-in-time market cap = shares_outstanding x price):
+- L/S book +0.6% Sharpe 0.17 (still not tradeable). vs full-universe -1.9%.
+- LONG ALPHA (high-ROIC large-cap - large-cap universe) = +1.96%/yr, Sharpe 0.54, maxDD -12%, hit52%.
+  REAL directional quality tilt (vs ~0 in full universe -- junk-squeeze removed). BUT Sharpe 0.54 over
+  ~9y -> t~1.6, does NOT clear t>=3 (or even 2). Encouraging, not validated. = the known/decayed
+  quality premium magnitude.
+- SHORT ALPHA flat (-0.2%, Sharpe -0.01) in large-cap (was -3.8% toxic in full universe). Short leg
+  is dead everywhere -> dollar-neutral L/S is pointless; the /2 just halves the long alpha.
+VERDICT: ROIC is a MODEST LONG-ONLY LARGE-CAP quality TILT (~2%/yr, Sharpe~0.5, t~1.6), not a
+market-neutral strategy. If used at all: long-only large-cap, ROIC as an overweight, NOT the current
+dollar-neutral L/S. Still nothing in the stack clears the P&L significance bar. book.py/screen.py are
+built as dollar-neutral L/S on the FULL universe -> that's the worst config (the losing one).

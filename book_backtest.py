@@ -30,9 +30,22 @@ COST_BPS = 10               # per side, per name, per rebalance (mid/small-cap r
 START = "2016-01-01"
 
 
+def _shares(sym):
+    """Point-in-time shares-outstanding series (period_end+lag -> known) for market cap."""
+    try:
+        e = pd.read_parquet(data.EARN / "balance_sheet_equity" / f"{sym}.parquet")
+    except Exception:
+        return None
+    e = e[e["period"] == "Quarter"].copy()
+    e["known_on"] = pd.to_datetime(e["date"]) + data.DEFAULT_REPORT_LAG
+    e["sh"] = pd.to_numeric(e["shares_outstanding"], errors="coerce")
+    e = e.dropna(subset=["sh"]).sort_values("known_on")
+    return e[["known_on", "sh"]] if not e.empty else None
+
+
 def _precompute(universe):
-    """Per symbol: ROIC time series with its knowledge date, and a daily close series."""
-    roic_ts, closes = {}, {}
+    """Per symbol: ROIC time series, daily close + return series, close levels, shares (for mcap)."""
+    roic_ts, closes, levels, shares = {}, {}, {}, {}
     from quant import roc
     for sym in universe:
         try:
@@ -46,17 +59,32 @@ def _precompute(universe):
         r["known_on"] = pd.to_datetime(r["period_end"]) + data.DEFAULT_REPORT_LAG
         roic_ts[sym] = r[["known_on", "roic"]].sort_values("known_on")
         s = px.set_index("date")["close"]
-        # drop split-artifact days (>50% single-day move) before computing returns
         ret = s.pct_change()
-        ret[ret.abs() > 0.5] = np.nan
+        ret[ret.abs() > 0.5] = np.nan          # drop split-artifact days
         closes[sym] = ret
-    return roic_ts, closes
+        levels[sym] = s
+        sh = _shares(sym)
+        if sh is not None:
+            shares[sym] = sh
+    return roic_ts, closes, levels, shares
 
 
-def backtest(universe, sectors):
-    roic_ts, rets = _precompute(universe)
+def _mcap_at(levels, shares, sym, D):
+    """Market cap = latest-known shares * price at/just-before D (point-in-time). None if missing."""
+    if sym not in shares or sym not in levels:
+        return None
+    sh = shares[sym]; sh = sh[sh["known_on"] <= D]
+    px = levels[sym]; px = px[px.index <= D]
+    if sh.empty or px.empty:
+        return None
+    return float(sh.iloc[-1]["sh"]) * float(px.iloc[-1])
+
+
+def backtest(universe, sectors, top_mcap=None):
+    roic_ts, rets, levels, shares = _precompute(universe)
     syms = list(roic_ts)
-    print(f"universe with ROIC + prices: {len(syms)}")
+    print(f"universe with ROIC + prices: {len(syms)}"
+          + (f" | restricting to top {top_mcap} by market cap each rebalance" if top_mcap else ""))
     spy = data.benchmark()
     cal = spy.index[spy.index >= pd.Timestamp(START)]
     rebal_dates = cal[::REBAL]
@@ -79,6 +107,9 @@ def backtest(universe, sectors):
         if len(rows) < 50:
             continue
         df = pd.DataFrame(rows, columns=["sym", "sector", "roic"])
+        if top_mcap:                              # large-cap restriction (point-in-time market cap)
+            df["mcap"] = [_mcap_at(levels, shares, s, D) for s in df["sym"]]
+            df = df.dropna(subset=["mcap"]).nlargest(top_mcap, "mcap")
         vc = df["sector"].value_counts()
         df = df[df["sector"].isin(vc[vc >= MIN_SECTOR].index)]
         # sector-neutral score = within-sector percentile rank, centered
@@ -135,14 +166,15 @@ def metrics(r, label):
     return eq
 
 
-def main():
+def main(top_mcap=None):
     sect = data.sectors()
     inc = {p.stem for p in (data.EARN / "income_statement").glob("*.parquet")}
     universe = sorted(inc & set(sect.index))
-    r, spy, legs = backtest(universe, sect)
+    r, spy, legs = backtest(universe, sect, top_mcap=top_mcap)
     if r.empty:
         print("no returns"); return
-    print(f"\n=== BOOK BACKTEST (ROIC L/S, dollar-neutral, quarterly, {r.index[0].date()}->{r.index[-1].date()}) ===")
+    tag = f"LARGE-CAP top{top_mcap}" if top_mcap else "FULL universe"
+    print(f"\n=== BOOK BACKTEST [{tag}] (ROIC L/S, dollar-neutral, quarterly, {r.index[0].date()}->{r.index[-1].date()}) ===")
     eq_gross = metrics(r, "gross (pre-cost incl.)")        # costs already in r; this is net
     # vol-targeted variant: scale by target / trailing 63d realized vol
     tv = TARGET_VOL / (r.rolling(63).std() * np.sqrt(252)).shift(1)
@@ -167,4 +199,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    main(top_mcap=int(sys.argv[1]) if len(sys.argv) > 1 else None)
