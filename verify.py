@@ -45,7 +45,8 @@ def main():
         print(f"{c:14} {d5:+9.3f} {d21:+10.3f} {v21:+10.3f}   {lane}")
 
     print("\nseparately measured (cross-sectional / heavy):")
-    print("  growth_accel   -> DIRECTION  (sector-neutral IC ~0.037, t5.3 @21d)")
+    print("  roic           -> DIRECTION  (sector-neutral t3.81 @63d, OOS-stable -- STRONGEST picker)")
+    print("  growth_accel   -> DIRECTION  (MODEST: IC ~0.018, t~2.4 @21d/t2.7 @63d; recorded t5.3 didn't reproduce)")
     print("  pcr_vol_z      -> CONTEXT/weak-dir (IC ~0.07 but t2.1 non-overlap)")
     print("  rnd right-tail -> CONTEXT/weak-dir (IC ~0.09 @5d)")
     print("  nodes          -> CONTEXT (no daily edge)")
