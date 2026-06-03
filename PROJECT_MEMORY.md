@@ -444,3 +444,23 @@ PART 3 — code audit: 17/17 modules import clean; roc/gex/rnd/nodes/anomaly/reg
   delta -0.0003, still nothing) + nodes_backtest (no edge) + combo_test (GEX-quarterly Sharpe
   0.68->0.59, the horizon-mismatch that justified sizing.py) all run. BUGS FOUND+FIXED: 2 cp1252
   UnicodeEncode crashes on U+2248 (pcr.py, rnd_backtest.py) -> swapped to ASCII 't~'.
+
+## PEAD reaction-entry test (2026-06-03 pt.3) — user-supplied TradingView strategy
+Replicated the "Earnings Surprise + Reaction Entry" Pine indicator (pead.py): surprise sign +
+CONFIRMATION gate (reaction-day close must break the reference bar's hi/lo; reaction = ann bar
+BMO or next bar AMC from earnings_calendar 'when'), entry next open, hold 60d, excess-of-SPY.
+Measured 16,808 events / 1200 random symbols (2020-2026; earnings_calendar starts 2020). VERDICT:
+1. The CONFIRMATION GATE ADDS ~NOTHING: confirmed beats 60d med -2.1% hit45% vs rejected -2.5%
+   hit44% (identical); confirmed misses +5.3% hit60% vs rejected +4.3% hit59% (marginal). The
+   breakout filter does not separate signal from noise -- the surprise SIGN carries the edge.
+2. LONG/BEAT SIDE IS A LOSER: all beats 60d med -2.3%, hit 44% -- beats get FADED, not drifted.
+3. SHORT/MISS SIDE IS THE REAL, REGIME-STABLE SIGNAL: all misses 60d med +4.8%, hit 60%.
+   By year (beats hit% / misses hit%): 2020 54/50 (recovery exception, beats drift up),
+   2021 41/68, 2022 50/53 (bear, muted), 2023 40/64, 2024 41/64, 2025 40/58. From 2021 on
+   (ex-2022) the asymmetry is robust: beats fade ~40%, misses drift down 58-68%.
+4. EDGE = short the miss, not long the beat (negative-PEAD asymmetry; literature: bad news
+   incorporated slowly + short-sale constraints). Caveat: overlapping 60d windows inflate t;
+   event medians/hit-rates are the honest read; equal-weight, no costs, SPY-excess.
+This complements candidates.py's cross-sectional sue=weak finding: raw SUE cross-section is weak,
+but the DIRECTIONAL/event view shows a real downside drift the long side masks. pead.py pushed to
+the github review repo.
