@@ -675,3 +675,17 @@ trend, +ve in 2022), NOT stock selection -- SPY-vol-target-alone doesn't help (0
 reconfigured to SPY-core + trend; QM kept as optional tilt (it didn't beat passive). 
 LESSON: the whole "viable alpha" arc was a data bug; the only thing that genuinely beats passive on
 clean data is risk-managing the equity premium with an uncorrelated diversifier -- honest enhanced beta.
+
+## NO-SPY MARKET-BEATER ATTEMPT: dual-momentum rotation (2026-06-03 pt.15)
+Goal: beat the market without holding SPY. Built rotation.py = dual-momentum asset rotation (no SPY):
+monthly, score=avg(1/3/6/12m) return, hold top-K of {QQQ,IWM,intl,sectors,bonds,GLD/SLV/DBC,VNQ,
+BTC,ETH}, absolute-momentum filter -> BIL(cash) when a slot trails cash. Split-adjusted, net costs.
+RESULTS (2012-2025): top5 equal Sharpe 0.78 CAGR 19.9% maxDD -36% Calmar 0.56 (SPY 0.79/12.6%/-34%/0.37).
+HONESTY CHECK: NO-crypto rotation = Sharpe 0.53 CAGR 10.3% -> UNDERPERFORMS SPY. The entire edge is
+CRYPTO (BTC/ETH trend 2017-2025). inv-vol/vol-target HURT (cut the crypto exposure driving returns).
+crypto-cap10%: Sharpe 0.69 CAGR 14.6% Calmar 0.61 maxDD -24% -- best Calmar, beats SPY on return+Calmar,
+NOT Sharpe. 1st-half OOS ~0.50 (< SPY 0.90) -> outperformance concentrated in the recent crypto era,
+NOT robust all-weather. VERDICT: beats SPY on RETURN & CALMAR (no SPY held) but it's a crypto-momentum
+bet, Sharpe tied/worse, regime-dependent. Robust risk-adjusted (Sharpe) outperformance of SPY without
+SPY/crypto is NOT in this data on clean prices -- consistent with the whole session (alpha is hard;
+the only clean Sharpe-beater was SPY+trend, which the goal excluded).
