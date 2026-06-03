@@ -581,3 +581,19 @@ sources.cross_check_all(symbol) runs the full sweep. SEC concepts available in s
 StockholdersEquity, NetIncomeLoss, OperatingIncomeLoss, LongTermDebtNoncurrent, CommonStockShares,
 NetCashProvidedByUsedInOperatingActivities, PaymentsToAcquirePPE (2010-2025 Q4) -> can extend the
 fundamentals check to NOPAT/CFO/debt later. Multi-source data layer = DONE.
+
+## CRITICAL: ROIC FAILS THE P&L BAR (2026-06-03 pt.9) — IC != money
+First ACTUAL strategy backtest (book_backtest.py): ROIC sector-neutral L/S, dollar-neutral, quarterly,
+point-in-time, costs 10bps/side, 2016-2025, 3237-name universe.
+RESULT: book CAGR -1.9%, Sharpe -0.30, maxDD -27%, final 0.84x (LOSES). vol-targeted worse (-0.31).
+LEG DECOMP (the why): long-quintile +13.4%/Sharpe0.73 but long ALPHA vs universe = +0.33%/Sharpe0.09
+  (~ZERO -- quality didn't outperform); short-quintile +15.2% (junk OUTPERFORMED) -> short alpha
+  -3.8%/Sharpe-0.45 (toxic). Negative EVEN GROSS. Both legs dead; long-only wouldn't save it.
+=> The t=3.81 cross-sectional IC was REAL but economically meaningless (too small + concentrated in
+  un-shortable junk). "Validated" in this project meant IC-positive, NOT profitable -- different bars.
+RE-GRADE (honest): NOTHING in the stack has cleared the P&L bar. ROIC = IC-positive/P&L-negative.
+  growth_accel downgraded (t2.4). PEAD failed. GEX/regime = conditioners, never standalone money.
+  The project's durable value = the measurement + risk infrastructure, not alpha. Matches the corpus
+  (McLean-Pontiff decay, Harvey-Liu-Zhu false factors, low realistic IR). 
+NEXT (fair test before burying ROIC): large-cap-only universe (no microcap-junk squeeze on the short)
+  + long-only quality + cost/quintile sensitivity. Not expected to rescue, but it's the honest check.
