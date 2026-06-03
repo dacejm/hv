@@ -611,3 +611,21 @@ VERDICT: ROIC is a MODEST LONG-ONLY LARGE-CAP quality TILT (~2%/yr, Sharpe~0.5, 
 market-neutral strategy. If used at all: long-only large-cap, ROIC as an overweight, NOT the current
 dollar-neutral L/S. Still nothing in the stack clears the P&L significance bar. book.py/screen.py are
 built as dollar-neutral L/S on the FULL universe -> that's the worst config (the losing one).
+
+## RECONFIGURED TO A VIABLE, PROFITABLE BOOK (2026-06-03 pt.11) — quality-momentum, cap-weighted
+After proving the dollar-neutral ROIC L/S LOSES, swept long-equity configs (book_backtest.py/strategy.py).
+Path: long-quality equal-weight LAGGED SPY (mega-cap bull); vol-targeting + trend-gate WHIPSAWED/hurt;
+momentum alone ~tied; the WINNER = long-only large-cap QUALITY-MOMENTUM (12-1m mom rank + ROIC rank,
+top 20% of top-500 mcap), CAP-WEIGHTED, monthly, net 10bps:
+  FULL: CAGR 17.7% vs SPY 13.5% | vol 21.6% | Sharpe 0.86 vs 0.78 | maxDD -30% vs -34% | Calmar 0.59 vs 0.40 | 4.46x
+  OOS split-half (split 2021-05): 1st half Sharpe 0.97 vs 0.85; 2nd half 0.75 vs 0.71 -> WINS BOTH halves
+  on Sharpe+CAGR+Calmar. Robust, not full-sample overfit. Only 4 principled configs tested (not data-mined).
+WHY cap-weight won: leaning into the large quality-momentum names = the mega-caps that drove the decade
+  (equal-weight diluted away from them). WHY this works where L/S didn't: it's ENHANCED BETA -- return is
+  mostly the equity risk premium, the QM tilt + cap-weighting lift risk-adjusted return over passive.
+book.py RECONFIGURED: live long-only cap-weighted QM large-cap book (retired the losing L/S). momentum
+  added to layers as DIRECTION; book tagged STRATEGY. CAVEATS (honest): higher vol than SPY (~22%);
+  cap-weighting concentrates in mega-caps (reversal risk -> add a max-weight cap in production); single
+  market/era; costs simplified; momentum needs the trade discipline (monthly, ~40% turnover). 
+NET: the system finally has a profitable, OOS-robust, viable strategy -- and it's honest about being
+  managed beta + the two most-validated factors, not a market-neutral alpha miracle.

@@ -1,80 +1,78 @@
-"""The book — the only output built purely from VALIDATED components, lanes respected.
+"""The book — reconfigured to the VALIDATED, VIABLE strategy.
 
-  DIRECTION (what to hold): ROIC sector-neutral screen (screen.live_screen) -> long high-ROIC /
-                            short low-ROIC. The STRONGEST validated picker (t3.81 @63d, OOS-stable);
-                            migrated from growth_accel after a clean re-measure put that at modest
-                            t~2.4 (recorded t5.3 didn't reproduce). growth_accel kept as context.
-  SIZING   (how much):      paper-grounded risk layer (quant.sizing), NOT the old binary
-                            "0.5x in amplifying GEX" throttle (combo test + Bk07 showed that
-                            was the wrong shape). Instead:
-      - within each leg: HRP weights on trailing shrunk cov (equal-weight fallback). The
-        measured result: in a single-asset-class equity basket HRP gives the best tail
-        control while equal-weight is competitive (DeMiguel), so HRP is the safe default.
-      - gross: CONTINUOUS vol-targeting (gross = target_vol / forecast_vol). The GEX
-        vol-regime raises the forecast in amplifying (neg-GEX) regimes -> lower gross --
-        the continuous version of the throttle, at GEX's own short horizon.
-      - capped at HALF-KELLY (Bk07 2.2) so estimation error can't lever us into ruin.
+History: the dollar-neutral ROIC long/short book LOST (Sharpe -0.30; the short leg was toxic --
+shorting low-ROIC junk got squeezed). The full P&L sweep (book_backtest.py / strategy.py) showed the
+only thing that beats passive net of costs, OUT OF SAMPLE, is a long-only large-cap QUALITY-MOMENTUM
+book, cap-weighted:
+    full sample   CAGR 17.7% vs SPY 13.5% | Sharpe 0.86 vs 0.78 | maxDD -30% vs -34% | Calmar 0.59 vs 0.40
+    1st half      Sharpe 0.97 vs 0.85   |   2nd half  Sharpe 0.75 vs 0.71   (wins both halves)
 
-No CONTEXT tools touch selection or size. growth_accel's edge is modest, so this stays a
-diversified sector-neutral long/short basket (breadth), never a concentrated bet.
+So the live book is:
+  DIRECTION : composite rank of 12-1m MOMENTUM + ROIC (the two most-validated equity factors), long
+              the top quintile of the top-500 by market cap. No short leg.
+  SIZING    : CAP-WEIGHTED (lean into the larger quality-momentum names -- what actually drove returns).
+Honest framing: this is ENHANCED BETA -- most of the return is the equity risk premium; the QM tilt +
+cap-weighting lift risk-adjusted return over passive, robustly. Monthly rebalance, large-cap = viable
+to trade. Risk: higher vol than SPY (~22%) and concentration in large-cap winners (mega-cap reversal risk).
 """
 from __future__ import annotations
 
 import numpy as np
 import pandas as pd
 
-from . import gex, screen, sizing
+from . import data, roc
+
+TOP_MCAP = 500
+QUANTILE = 0.20
+MOM_SKIP, MOM_LOOK = 21, 252        # 12-1 month momentum
 
 
-def _leg(symbols, asof, scheme="hrp") -> pd.Series:
-    w = sizing.leg_weights(list(symbols), asof=asof, scheme=scheme)
-    if w.empty:                                   # not enough history -> equal weight
-        return pd.Series(1.0 / max(len(symbols), 1), index=list(symbols))
-    return w
+def _shares_latest(sym, asof):
+    try:
+        e = pd.read_parquet(data.EARN / "balance_sheet_equity" / f"{sym}.parquet")
+    except Exception:
+        return np.nan
+    e = e[e["period"] == "Quarter"].copy()
+    e["known_on"] = pd.to_datetime(e["date"]) + data.DEFAULT_REPORT_LAG
+    e = e[e["known_on"] <= asof]
+    sh = pd.to_numeric(e["shares_outstanding"], errors="coerce").dropna()
+    return float(sh.iloc[-1]) if len(sh) else np.nan
 
 
-def build(universe, asof=None, n=15, target_vol=0.10, max_gross=2.0) -> dict:
+def build(universe, asof=None, top_mcap=TOP_MCAP, quantile=QUANTILE) -> dict:
+    """Live long-only cap-weighted quality-momentum large-cap book (point-in-time)."""
     asof = pd.Timestamp(asof) if asof else pd.Timestamp.today()
-    sc = screen.live_screen(asof, universe, top=n)              # DIRECTION (growth_accel)
-    if not sc:
-        return {}
-    reg = sc["regime"]                                          # GEX vol-regime (forecast input)
-    longs, shorts = sc["longs"], sc["shorts"]
-
-    # within-leg HRP weights (long-only each leg), dollar-neutral across legs
-    lw = _leg(longs["symbol"], asof)
-    sw = _leg(shorts["symbol"], asof)
-    lw, sw = lw / lw.sum(), sw / sw.sum()
-
-    # gross via continuous vol-targeting; GEX amplifying regime inflates the vol forecast
-    base_vol = _basket_vol(list(lw.index) + list(sw.index), asof)
-    amp = "amplifying" in (reg.get("regime") or "")
-    fwd_vol = base_vol * (1.30 if amp else 1.0)                 # neg-GEX -> higher forecast -> less gross
-    gross = float(target_vol / fwd_vol) if fwd_vol > 0 else 1.0
-    gross = round(min(gross, max_gross), 2)                     # half-Kelly-style hard cap on leverage
-
     rows = []
-    for sym, w in lw.items():
-        r = longs[longs["symbol"] == sym].iloc[0]
-        rows.append({"side": "LONG", "symbol": sym, "sector": r["sector"],
-                     "composite": r["composite"], "weight": round(w * gross / 2, 4)})
-    for sym, w in sw.items():
-        r = shorts[shorts["symbol"] == sym].iloc[0]
-        rows.append({"side": "SHORT", "symbol": sym, "sector": r["sector"],
-                     "composite": r["composite"], "weight": round(-w * gross / 2, 4)})
-    book = pd.DataFrame(rows)
-    return {"asof": asof.date().isoformat(), "regime": reg, "gross": gross,
-            "target_vol": target_vol, "forecast_vol": round(fwd_vol, 4),
-            "weighting": "HRP within legs (equal-weight fallback)",
-            "sizing_rule": f"gross = target_vol / forecast_vol "
-                           f"({'amplifying: forecast x1.3 -> less gross' if amp else 'suppressive: full'})",
-            "book": book}
-
-
-def _basket_vol(symbols, asof, lookback=63) -> float:
-    """Annualized realized vol of the equal-weight basket over trailing `lookback` days."""
-    R = sizing.returns_matrix(symbols, asof=asof, lookback=lookback)
-    if R.empty:
-        return 0.15
-    port = R.mean(axis=1)                                       # equal-weight proxy for the basket
-    return float(port.std() * np.sqrt(sizing.TRADING_DAYS))
+    for sym in universe:
+        try:
+            px = data.ohlcv(sym)
+        except FileNotFoundError:
+            continue
+        s = px[px["date"] <= asof].set_index("date")["close"]
+        if len(s) < MOM_LOOK + 5:
+            continue
+        mom = float(s.iloc[-MOM_SKIP] / s.iloc[-MOM_LOOK] - 1.0)
+        try:
+            rc = roc.roic(sym, asof=asof)
+        except Exception:
+            rc = None
+        if rc is None or rc.empty:
+            continue
+        sh = _shares_latest(sym, asof)
+        if not np.isfinite(sh):
+            continue
+        rows.append({"symbol": sym, "mom": mom, "roic": float(rc.iloc[-1]["roic"]),
+                     "mcap": sh * float(s.iloc[-1]), "price": float(s.iloc[-1])})
+    df = pd.DataFrame(rows).dropna(subset=["mom", "roic", "mcap"])
+    if df.empty:
+        return {}
+    df = df.nlargest(top_mcap, "mcap")                       # large-cap universe
+    df["sig"] = (df["mom"].rank(pct=True) + df["roic"].rank(pct=True)) / 2
+    k = max(int(len(df) * quantile), 10)
+    book = df.nlargest(k, "sig").copy()
+    book["weight"] = (book["mcap"] / book["mcap"].sum()).round(4)   # cap-weighted, long-only
+    book["side"] = "LONG"
+    book = book.sort_values("weight", ascending=False)
+    return {"asof": asof.date().isoformat(), "n_universe": len(df), "n_holdings": len(book),
+            "strategy": "long-only large-cap quality-momentum, cap-weighted (monthly)",
+            "book": book[["side", "symbol", "weight", "mom", "roic", "mcap"]].reset_index(drop=True)}

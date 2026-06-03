@@ -11,7 +11,8 @@ gex marginal-value test, regime_macro_test (MACRO x adds nothing), per-component
 
 LANES = {
     # DIRECTION — the scarce layer; the only thing that may pick longs/shorts
-    "roic":               ("DIRECTION",   "STRONGEST validated: NOPAT/invested-capital, sector-neutral t3.81 @63d, OOS-stable (candidates.py). Standalone @quarterly -- blend with growth_accel DILUTES"),
+    "momentum":           ("DIRECTION",   "12-1m price momentum -- the factor that beats passive this era. In the VIABLE book (long-only large-cap QM, cap-weighted): CAGR 17.7% vs SPY 13.5%, Sharpe 0.86 vs 0.78, wins both OOS halves"),
+    "roic":               ("DIRECTION",   "NOPAT/invested-capital. IC-positive (t3.81) but as L/S P&L it LOSES (short leg toxic). USE: quality leg of the long-only QM book (momentum x roic), NOT dollar-neutral"),
     "roc.growth_accel":   ("DIRECTION",   "MODEST (downgraded 2026-06): full-universe date-matched IC~0.018 t~2.4 @21d / t2.71 @63d (Bonferroni only). OOS-stable but does NOT clear t3. Recorded t5.3 did NOT reproduce -- was an earlier/smaller universe"),
     "screen":             ("DIRECTION",   "growth_accel sector-neutral live screen"),
     # SIZING / VOL — scale risk, choose vol regime; predicts VOLATILITY not direction
@@ -19,7 +20,8 @@ LANES = {
     # EXPRESSION — how to express a view (not whether)
     "intrinsic":          ("EXPRESSION",  "valuation scenarios given a multiple view (WACC + bear/base/bull)"),
     "options_vs_stock":   ("EXPRESSION",  "3-factor surface (IVP + term-slope + RR25 skew): long vol when IV cheap; finance puts when skew steep"),
-    "sizing":             ("SIZING/VOL",  "vol-target + HRP/min-var + half-Kelly; the validated risk layer (replaces book's binary throttle)"),
+    "sizing":             ("SIZING/VOL",  "vol-target + HRP/min-var + half-Kelly; risk-layer primitives (note: vol-targeting HURT the long book in backtest -- cap-weighting beat it)"),
+    "book":               ("STRATEGY",    "THE VIABLE BOOK: long-only large-cap quality-momentum, cap-weighted, monthly. Beats SPY net of costs in BOTH OOS halves (Sharpe 0.86 vs 0.78, Calmar 0.59 vs 0.40). Enhanced beta, not market-neutral alpha"),
     # CONTEXT — orient / idea-generate / label; NEVER a buy signal, NEVER sizes
     "regime":             ("CONTEXT",     "4-quadrant growth x inflation + per-quadrant premia tilt; MACRO x adds nothing to returns -> display only"),
     "screeners":          ("CONTEXT",     "momentum x regime attention board (momentum=noise@21d) -> not a buy list"),
