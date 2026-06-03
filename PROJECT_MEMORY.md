@@ -658,3 +658,20 @@ book.py updated: TREND_ETFS += BTCUSDT, 50/50 split, crypto loader. CAVEAT: cryp
 trend regime (overfit-to-crypto-bull risk); it's vol-scaled small and long/short so robust-ish, but
 size it humbly. EVOLUTION: ROIC L/S (lost) -> QM long (0.86) -> +trend (0.97) -> +BTC trend (1.02).
 NEXT: improve the EQUITY sleeve (risk-adjusted / residual momentum) -- the main return lever, untested.
+
+## CRITICAL CORRECTION + the HONEST best strategy (2026-06-03 pt.14)
+SPLIT-ADJUSTMENT BUG found: data.ohlcv close is split-UNADJUSTED. Momentum was computed on raw prices
+-> any stock that split looked like a -75% crash (AAPL momentum -0.59 vs true +0.64) -> inverted signal
+-> spurious selection that FLATTERED every prior backtest. This invalidated ALL prior strategy P&L
+(QM Sharpe 0.86, book 1.02 "beats SPY" -- all artifacts). Fix: data.adj_close() back-adjusts splits;
+centralized; book.py now uses it. Also built featcache.py = cached vectorized backtest (tests in
+SECONDS) and fixed its daily-coverage bug (was 127 days/yr -> 252).
+CLEAN-DATA TRUTH: QM UNDERPERFORMS SPY across every weighting (equal 0.38 / dollar-vol 0.53 / market-cap
+0.65 vs SPY 0.74). Trend/vol-target combos on the QM core also < SPY. Stock-picking alpha is NOT here.
+THE HONEST BEST (survives clean data, OOS-robust): risk-managed BETA = 60% SPY + 40% cross-asset TREND
+(ETFs + BTC), vol-targeted 15%. Sharpe 0.83 vs SPY 0.74 | CAGR ~12.9% (= SPY) | maxDD -24% vs -34% |
+OOS 0.82/0.83 vs 0.80/0.67 (wins both halves, esp. 2nd). The edge is DIVERSIFICATION (uncorrelated
+trend, +ve in 2022), NOT stock selection -- SPY-vol-target-alone doesn't help (0.74). book.py
+reconfigured to SPY-core + trend; QM kept as optional tilt (it didn't beat passive). 
+LESSON: the whole "viable alpha" arc was a data bug; the only thing that genuinely beats passive on
+clean data is risk-managing the equity premium with an uncorrelated diversifier -- honest enhanced beta.

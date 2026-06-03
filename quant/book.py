@@ -24,7 +24,7 @@ from . import data, roc
 TOP_MCAP = 500
 QUANTILE = 0.20
 MOM_SKIP, MOM_LOOK = 21, 252
-EQUITY_W, TREND_W = 0.50, 0.50
+EQUITY_W, TREND_W = 0.60, 0.40
 TARGET_VOL = 0.15
 # trend sleeve assets: cross-asset ETFs + BTC (crypto trend is uncorrelated + high-Sharpe; vol-scaled
 # so it can't dominate). BTC lifted the book to Sharpe 1.02 / OOS 1.13/0.90 vs 0.98 without it.
@@ -104,21 +104,21 @@ def trend_sleeve(asof) -> pd.DataFrame:
     return df[["symbol", "weight", "pos"]].reset_index(drop=True)
 
 
-def build(universe, asof=None) -> dict:
-    """The full two-sleeve portfolio: 60% equity QM + 40% cross-asset trend, vol-target ~15%."""
+def build(universe=None, asof=None) -> dict:
+    """The HONEST best (clean data): risk-managed beta = 60% broad equity (SPY) + 40% cross-asset
+    trend (ETFs + BTC), vol-targeted ~15%. On split-adjusted data this beats passive SPY -- Sharpe
+    0.83 vs 0.74, SAME CAGR (~13%), maxDD -24% vs -34%, wins BOTH OOS halves. The gain is the trend
+    DIVERSIFICATION, not stock-picking (QM underperformed SPY on clean data, so it's NOT the core).
+    `equity_sleeve()` (QM) remains available as an optional factor tilt, but the validated book uses SPY."""
     asof = pd.Timestamp(asof) if asof else pd.Timestamp.today()
-    eq = equity_sleeve(universe, asof)
     tr = trend_sleeve(asof)
-    if eq.empty:
-        return {}
-    eq = eq.assign(sleeve="EQUITY", weight=lambda d: (d["weight"] * EQUITY_W).round(4))
-    tr = tr.assign(sleeve="TREND", weight=lambda d: (d["weight"] * TREND_W).round(4)) if not tr.empty else tr
-    book = pd.concat([eq[["sleeve", "symbol", "weight"]], tr[["sleeve", "symbol", "weight"]]],
-                     ignore_index=True) if not tr.empty else eq[["sleeve", "symbol", "weight"]]
+    rows = [{"sleeve": "EQUITY", "symbol": "SPY", "weight": round(EQUITY_W, 4)}]   # the equity premium
+    if not tr.empty:
+        for _, r in tr.iterrows():
+            rows.append({"sleeve": "TREND", "symbol": r["symbol"], "weight": round(r["weight"] * TREND_W, 4)})
     return {"asof": asof.date().isoformat(),
-            "strategy": "50% long-only large-cap quality-momentum (cap-wtd) + 50% cross-asset trend "
-                        "(ETFs + BTC), vol-targeted to ~15% (Sharpe ~1.02, CAGR ~16%, maxDD ~-21%, OOS-robust)",
+            "strategy": "60% SPY (equity premium) + 40% cross-asset trend (ETFs + BTC), vol-targeted "
+                        "~15%. Clean-data: Sharpe 0.83 vs SPY 0.74, ~same CAGR, maxDD -24% vs -34%, OOS-robust",
             "allocation": {"equity": EQUITY_W, "trend": TREND_W, "target_vol": TARGET_VOL},
-            "n_equity": len(eq), "n_trend": len(tr),
-            "note": "apply portfolio leverage to hit ~15% ann vol; cap single-name equity weight in production",
-            "book": book}
+            "note": "risk-managed beta + trend diversifier; apply portfolio leverage to hit ~15% ann vol",
+            "book": pd.DataFrame(rows)}
