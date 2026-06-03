@@ -54,6 +54,29 @@ def ohlcv(symbol: str) -> pd.DataFrame:
     return df.sort_values("date").reset_index(drop=True)
 
 
+SPLIT = DATA / "stocks" / "parquet" / "split"
+
+
+@functools.lru_cache(maxsize=512)
+def adj_close(symbol: str) -> pd.Series:
+    """Split-ADJUSTED close (date-indexed). The raw ohlcv is UNADJUSTED -- a 4:1 split shows as a
+    -75% day, which destroys momentum/returns across the split. Back-adjust: divide pre-ex-date prices
+    by the cumulative future split ratio so the series is continuous. (Dividends not adjusted here --
+    splits are the catastrophic one; dividend drift is a small second-order effect.)"""
+    c = ohlcv(symbol).set_index("date")["close"]
+    c = c[~c.index.duplicated()]
+    f = SPLIT / f"{symbol}.parquet"
+    if f.exists():
+        sp = pd.read_parquet(f)
+        factor = pd.Series(1.0, index=c.index)
+        for _, r in sp.iterrows():
+            forf = float(r["for_factor"]) or 1.0
+            ratio = float(r["to_factor"]) / forf
+            factor[c.index < pd.Timestamp(r["ex_date"])] *= ratio
+        c = c / factor
+    return c
+
+
 @functools.lru_cache(maxsize=512)
 def cash_flow(symbol: str) -> pd.DataFrame:
     """Quarterly cash-flow statement with a knowledge date (for accruals)."""

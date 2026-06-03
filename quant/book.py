@@ -1,22 +1,18 @@
-"""The book — VALIDATED, VIABLE, and now DIVERSIFIED (the improved champion).
+"""The book — long-only large-cap quality-momentum + cross-asset trend.
 
-Evolution, all measured on real P&L:
-  - dollar-neutral ROIC L/S        -> LOST (Sharpe -0.30; toxic short leg). Retired.
-  - long-only large-cap quality-momentum (QM), cap-weighted -> beat SPY (Sharpe 0.86, Calmar 0.59).
-  - + cross-asset TREND sleeve (managed-futures TS-momentum) for diversification -> BETTER STILL.
+*** CORRECTION (2026-06-03): the earlier "beats SPY, Sharpe 0.86->1.02" results were a SPLIT-
+ADJUSTMENT BUG. The price data is split-UNADJUSTED; momentum was computed on raw prices, so any stock
+that split looked like it crashed -> inverted momentum -> spurious selection that flattered the backtest.
+After fixing prices (data.adj_close) and a correct daily backtest, QUALITY-MOMENTUM UNDERPERFORMS SPY
+across every weighting (equal 0.38 / dollar-vol 0.53 / market-cap 0.65 vs SPY ~0.74). The trend +
+vol-target "improvements" also do not survive. NO active config here beats passive SPY on clean data.
 
-At equal risk (both vol-targeted to 15%) the two-sleeve book beats QM-only on every metric, in BOTH
-out-of-sample halves: CAGR 15.6% vs 15.2% | Sharpe 0.97 vs 0.95 | maxDD -20% vs -20% | Calmar 0.77 vs
-0.75 | OOS 1.09/0.85 vs 1.08/0.81. vs passive SPY: Sharpe 0.97 vs 0.78, maxDD -20% vs -34%.
+This module still BUILDS the QM + trend book (a defensible factor tilt, now on ADJUSTED prices), but do
+NOT believe it beats the market -- it didn't, in-sample, after the fix. Treat it as a factor-tilted
+equity sleeve, not alpha. Honest realistic 'best': low-cost passive unless a signal survives clean data.
 
-Construction (lanes respected):
-  EQUITY sleeve (60%) : long-only large-cap, rank = momentum(12-1m) + ROIC, top quintile, CAP-WEIGHTED.
-  TREND  sleeve (40%) : cross-asset 12-1m time-series momentum (long/short ETFs), inverse-vol scaled --
-                        uncorrelated to equities (corr +0.32), positive in equity bears -> crisis ballast.
-  PORTFOLIO          : 60/40 of the two, then vol-target the whole book to ~15% annualized.
-Honest: enhanced beta + a validated factor tilt + a diversifying trend overlay + vol-targeting. The
-return is the equity+trend premia; the tilts/diversification lift risk-adjusted return over passive.
-Production note: cap single-name equity weight (cap-weighting concentrates in mega-caps).
+Construction: EQUITY (50%) long-only large-cap, rank = 12-1m momentum + ROIC, top quintile, cap-weighted;
+TREND (50%) cross-asset TS-momentum (ETFs + BTC), inverse-vol; vol-target ~15%.
 """
 from __future__ import annotations
 
@@ -53,10 +49,10 @@ def equity_sleeve(universe, asof) -> pd.DataFrame:
     rows = []
     for sym in universe:
         try:
-            s = data.ohlcv(sym)
-        except FileNotFoundError:
+            s = data.adj_close(sym)                     # SPLIT-ADJUSTED (raw close gives inverted momentum)
+        except Exception:
             continue
-        s = s[s["date"] <= asof].set_index("date")["close"]
+        s = s[s.index <= asof]
         if len(s) < MOM_LOOK + 5:
             continue
         try:

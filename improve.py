@@ -54,30 +54,31 @@ def oos(r):
     mid = r.index[len(r)//2]; return metr(r[r.index < mid])[0], metr(r[r.index >= mid])[0]
 
 
-df = pd.read_csv("strategy_equity.csv", index_col=0, parse_dates=True)
-qm = df["qm"]; s0, e0 = qm.index[0], qm.index[-1]
-etfs = ["SPY", "QQQ", "TLT", "IEF", "GLD", "SLV", "DBC", "UUP", "HYG", "EEM", "VNQ", "XLE"]
+if __name__ == "__main__":
+    df = pd.read_csv("strategy_equity.csv", index_col=0, parse_dates=True)
+    qm = df["qm"]; s0, e0 = qm.index[0], qm.index[-1]
+    etfs = ["SPY", "QQQ", "TLT", "IEF", "GLD", "SLV", "DBC", "UUP", "HYG", "EEM", "VNQ", "XLE"]
 
-sleeves = {
-    "ETF-only":        trend_sleeve(etfs, (252,), s0, e0),
-    "ETF+BTC":         trend_sleeve(etfs + ["BTCUSDT"], (252,), s0, e0),
-    "ETF+BTC+ETH":     trend_sleeve(etfs + ["BTCUSDT", "ETHUSDT"], (252,), s0, e0),
-}
-print("standalone trend sleeves:")
-for n, t in sleeves.items():
-    sr, cg, dd = metr(t); print(f"  {n:14} Sharpe {sr:.2f} CAGR {cg:+.1%} maxDD {dd:.0%}")
+    sleeves = {
+        "ETF-only":        trend_sleeve(etfs, (252,), s0, e0),
+        "ETF+BTC":         trend_sleeve(etfs + ["BTCUSDT"], (252,), s0, e0),
+        "ETF+BTC+ETH":     trend_sleeve(etfs + ["BTCUSDT", "ETHUSDT"], (252,), s0, e0),
+    }
+    print("standalone trend sleeves:")
+    for n, t in sleeves.items():
+        sr, cg, dd = metr(t); print(f"  {n:14} Sharpe {sr:.2f} CAGR {cg:+.1%} maxDD {dd:.0%}")
 
-cur = vt(0.50 * qm + 0.50 * sleeves["ETF-only"].reindex(qm.index).fillna(0))
-csr, cc, cd = metr(cur); o1, o2 = oos(cur)
-print(f"\nCURRENT-ish (QM50/ETF-only) @15%: Sharpe {csr:.2f} CAGR {cc:+.1%} maxDD {cd:.0%} | OOS {o1:.2f}/{o2:.2f}\n")
+    cur = vt(0.50 * qm + 0.50 * sleeves["ETF-only"].reindex(qm.index).fillna(0))
+    csr, cc, cd = metr(cur); o1, o2 = oos(cur)
+    print(f"\nCURRENT-ish (QM50/ETF-only) @15%: Sharpe {csr:.2f} CAGR {cc:+.1%} maxDD {cd:.0%} | OOS {o1:.2f}/{o2:.2f}\n")
 
-best = None
-for n, t in sleeves.items():
-    t = t.reindex(qm.index).fillna(0)
-    for w in (0.50, 0.60, 0.65):
-        r = vt(w * qm + (1 - w) * t); sr, cg, dd = metr(r); a1, a2 = oos(r)
-        beats = sr > csr and a1 >= o1 - 0.02 and a2 >= o2 - 0.02 and (a1 > o1 or a2 > o2)
-        print(f"QM{int(w*100)}/{n:12} Sharpe {sr:.2f} CAGR {cg:+.1%} maxDD {dd:.0%} | OOS {a1:.2f}/{a2:.2f}{'  <== BETTER' if beats else ''}")
-        if beats and (best is None or sr > best[1]):
-            best = (f"QM{int(w*100)}/{n}", sr, cg, dd)
-print(f"\nbest: {best if best else 'none beat current'}")
+    best = None
+    for n, t in sleeves.items():
+        t = t.reindex(qm.index).fillna(0)
+        for w in (0.50, 0.60, 0.65):
+            r = vt(w * qm + (1 - w) * t); sr, cg, dd = metr(r); a1, a2 = oos(r)
+            beats = sr > csr and a1 >= o1 - 0.02 and a2 >= o2 - 0.02 and (a1 > o1 or a2 > o2)
+            print(f"QM{int(w*100)}/{n:12} Sharpe {sr:.2f} CAGR {cg:+.1%} maxDD {dd:.0%} | OOS {a1:.2f}/{a2:.2f}{'  <== BETTER' if beats else ''}")
+            if beats and (best is None or sr > best[1]):
+                best = (f"QM{int(w*100)}/{n}", sr, cg, dd)
+    print(f"\nbest: {best if best else 'none beat current'}")

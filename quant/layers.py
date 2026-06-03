@@ -11,7 +11,7 @@ gex marginal-value test, regime_macro_test (MACRO x adds nothing), per-component
 
 LANES = {
     # DIRECTION — the scarce layer; the only thing that may pick longs/shorts
-    "momentum":           ("DIRECTION",   "12-1m price momentum -- the factor that beats passive this era. In the VIABLE book (long-only large-cap QM, cap-weighted): CAGR 17.7% vs SPY 13.5%, Sharpe 0.86 vs 0.78, wins both OOS halves"),
+    "momentum":           ("DIRECTION",   "12-1m price momentum. NOTE: earlier outperformance was a split-adjust BUG; on adjusted prices QM UNDERPERFORMS SPY (0.65 vs 0.74). Factor tilt, not alpha"),
     "roic":               ("DIRECTION",   "NOPAT/invested-capital. IC-positive (t3.81) but as L/S P&L it LOSES (short leg toxic). USE: quality leg of the long-only QM book (momentum x roic), NOT dollar-neutral"),
     "roc.growth_accel":   ("DIRECTION",   "MODEST (downgraded 2026-06): full-universe date-matched IC~0.018 t~2.4 @21d / t2.71 @63d (Bonferroni only). OOS-stable but does NOT clear t3. Recorded t5.3 did NOT reproduce -- was an earlier/smaller universe"),
     "screen":             ("DIRECTION",   "growth_accel sector-neutral live screen"),
@@ -22,7 +22,7 @@ LANES = {
     "options_vs_stock":   ("EXPRESSION",  "3-factor surface (IVP + term-slope + RR25 skew): long vol when IV cheap; finance puts when skew steep"),
     "sizing":             ("SIZING/VOL",  "vol-target + HRP/min-var + half-Kelly; risk-layer primitives (note: vol-targeting HURT the long book in backtest -- cap-weighting beat it)"),
     "momentum_xasset":    ("DIVERSIFIER", "cross-asset 12-1m time-series momentum (managed futures) across SPY/TLT/GLD/commodities/etc. Corr +0.32 to the equity book, positive in equity bears -> crisis ballast"),
-    "book":               ("STRATEGY",    "THE BOOK: 60% long-only large-cap quality-momentum (cap-wtd) + 40% cross-asset trend, vol-targeted ~15%. Beats QM-only AND SPY at equal risk in BOTH OOS halves (Sharpe 0.97 vs 0.95/0.78; maxDD -20% vs -34%). Enhanced beta + factor tilt + diversifying trend overlay"),
+    "book":               ("STRATEGY",    "QM + trend factor-tilted equity book on ADJUSTED prices. CORRECTION: prior beats-SPY/Sharpe 1.02 was a split-adjust bug; on clean data NO config beats passive SPY (QM 0.65 vs 0.74). Treat as factor tilt, not alpha"),
     # CONTEXT — orient / idea-generate / label; NEVER a buy signal, NEVER sizes
     "regime":             ("CONTEXT",     "4-quadrant growth x inflation + per-quadrant premia tilt; MACRO x adds nothing to returns -> display only"),
     "screeners":          ("CONTEXT",     "momentum x regime attention board (momentum=noise@21d) -> not a buy list"),
