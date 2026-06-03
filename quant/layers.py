@@ -11,8 +11,8 @@ gex marginal-value test, regime_macro_test (MACRO x adds nothing), per-component
 
 LANES = {
     # DIRECTION — the scarce layer; the only thing that may pick longs/shorts
-    "roc.growth_accel":   ("DIRECTION",   "validated: sector-neutral IC~0.037, t5.3 @21d, OOS-stable"),
-    "roic":               ("DIRECTION",   "validated: NOPAT/invested-capital, sector-neutral t3.81 @63d, OOS-stable (candidates.py). Use STANDALONE @quarterly -- equal-wt blend with growth_accel DILUTES (measured)"),
+    "roic":               ("DIRECTION",   "STRONGEST validated: NOPAT/invested-capital, sector-neutral t3.81 @63d, OOS-stable (candidates.py). Standalone @quarterly -- blend with growth_accel DILUTES"),
+    "roc.growth_accel":   ("DIRECTION",   "MODEST (downgraded 2026-06): full-universe date-matched IC~0.018 t~2.4 @21d / t2.71 @63d (Bonferroni only). OOS-stable but does NOT clear t3. Recorded t5.3 did NOT reproduce -- was an earlier/smaller universe"),
     "screen":             ("DIRECTION",   "growth_accel sector-neutral live screen"),
     # SIZING / VOL — scale risk, choose vol regime; predicts VOLATILITY not direction
     "gex":                ("SIZING/VOL",  "validated: neg-GEX -> higher fwd realized vol (deflated t 3.8-6.5)"),

@@ -36,6 +36,7 @@ def pcr_series(symbol="SPY", window=60) -> pd.DataFrame:
     df["pcr_oi"] = df["put_oi"] / df["call_oi"]
     df["pcr_vol"] = df["put_vol"] / df["call_vol"]
     df["pcr_dw"] = df["put_dvol"] / df["call_dvol"]          # delta-weighted (conviction) PCR
+    df = df.replace([np.inf, -np.inf], np.nan)               # zero call OI/vol -> NaN, not inf (don't poison rolling stats)
     for c in ("pcr_oi", "pcr_vol", "pcr_dw"):
         m = df[c].rolling(window).mean().shift(1)        # trailing, excludes today (point-in-time)
         s = df[c].rolling(window).std().shift(1)

@@ -81,7 +81,7 @@ def events(sym: str, spy: pd.Series) -> pd.DataFrame:
         entry_px = px["open"].iloc[ent]
         if entry_px <= 0:
             continue
-        si = int(np.searchsorted(sidx, np.datetime64(px["date"].iloc[ent]), side="left"))  # SPY entry
+        si = int(np.searchsorted(sidx, np.datetime64(px["date"].iloc[ent]), side="right")) - 1  # SPY as-of (<=) entry
         # surprise as a continuous feature (winsorized %); the entry date is the panel date
         spct = float(np.clip(e["surprise"] / abs(e["estimate"]), -2, 2)) if e["estimate"] else np.nan
         row = {"symbol": sym, "date": px["date"].iloc[ent], "ann": e["ann"], "dir": sgn,

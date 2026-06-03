@@ -59,7 +59,9 @@ def value(symbol: str, scenarios: dict = SCENARIOS) -> dict:
 
     rf, beta = _rf(), _beta(symbol)
     ce = rf + beta * ERP
-    cd = (interest / debt) if debt > 0 and interest else rf + 0.015
+    # bound cost of debt: netting/timing artifacts (e.g. $5M interest on a $10k period-end debt
+    # balance) can imply a 50,000% rate and explode WACC. Clip to a sane [rf, 20%] band.
+    cd = float(np.clip(interest / debt, rf, 0.20)) if debt > 0 and interest else rf + 0.015
     mktcap = price * shares
     V = mktcap + max(debt, 0)
     wacc = (mktcap / V) * ce + (max(debt, 0) / V) * cd * (1 - tax) if V > 0 else ce

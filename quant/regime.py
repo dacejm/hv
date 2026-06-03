@@ -82,10 +82,17 @@ def _fred(sid, asof=None):
                 url = f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={sid}"
                 raw = urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"}), timeout=8).read().decode()
                 df = pd.read_csv(io.StringIO(raw)); df.columns = ["date", "val"]
-            df.to_csv(cache, index=False)
+            tmp = cache.with_suffix(".csv.tmp")          # atomic write: a killed/timed-out fetch
+            df.to_csv(tmp, index=False)                  # leaves a .tmp, never a half-written cache
+            os.replace(tmp, cache)
         except Exception:
             _FRED_DEAD.add(sid); return None
-    df = pd.read_csv(cache); df.columns = ["date", "val"]
+    try:
+        df = pd.read_csv(cache); df.columns = ["date", "val"]
+        if df.empty:
+            raise ValueError("empty cache")
+    except Exception:                                    # corrupt/0-byte cache -> drop it, refetch next run
+        cache.unlink(missing_ok=True); _FRED_DEAD.add(sid); return None
     df["date"] = pd.to_datetime(df["date"], errors="coerce")
     df["val"] = pd.to_numeric(df["val"], errors="coerce")
     df = df.dropna()

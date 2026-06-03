@@ -99,8 +99,10 @@ def equal_weight(cov) -> np.ndarray:
 
 
 def inverse_vol(cov) -> np.ndarray:
-    iv = 1.0 / np.sqrt(np.diag(cov))
-    return iv / iv.sum()
+    d = np.sqrt(np.diag(cov))
+    iv = np.where(d > 0, 1.0 / np.where(d > 0, d, 1.0), 0.0)   # zero-variance (halted/flatlined) -> 0 weight
+    s = iv.sum()
+    return iv / s if s > 0 else equal_weight(cov)
 
 
 def min_variance(cov, long_only=True) -> np.ndarray:
@@ -157,7 +159,7 @@ def hrp(R: pd.DataFrame, cov=None) -> np.ndarray:
     quasi-diagonalize, recursive inverse-variance bisection. Never inverts the covariance.
     If `cov` is supplied (e.g. regime-conditional), it drives both the clustering correlations
     and the bisection variances; otherwise the sample correlation/cov of R is used."""
-    from scipy.cluster.hierarchy import linkage
+    from scipy.cluster.hierarchy import leaves_list, linkage
     from scipy.spatial.distance import squareform
     if cov is None:
         corr = R.corr().values
@@ -170,14 +172,9 @@ def hrp(R: pd.DataFrame, cov=None) -> np.ndarray:
         return inverse_vol(cov)
     dist = np.sqrt(np.clip(0.5 * (1 - corr), 0, None))
     link = linkage(squareform(dist, checks=False), method="single")
-
-    # quasi-diagonalization: recover the leaf order from the linkage tree
-    def _leaves(node, n):
-        if node < n:
-            return [int(node)]
-        a, b = int(link[node - n, 0]), int(link[node - n, 1])
-        return _leaves(a, n) + _leaves(b, n)
-    order = _leaves(2 * n - 2, n)
+    # quasi-diagonalization via scipy's iterative leaf-order recovery (a recursive tree walk
+    # blows the Python recursion limit past ~500 assets; leaves_list is iterative + C-backed).
+    order = list(leaves_list(link))
 
     # recursive bisection
     w = np.ones(n)

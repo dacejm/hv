@@ -38,8 +38,11 @@ def _fwd(px: pd.DataFrame, spy: pd.Series, e_idx: int, h: int):
         return np.nan, np.nan
     fwd = exit_ / entry - 1.0
     ed, xd = px["date"].iloc[e_idx], px["date"].iloc[x_idx]
-    se, sx = spy.index.searchsorted(ed, "left"), spy.index.searchsorted(xd, "left")
-    mkt = (spy.iloc[sx] / spy.iloc[se] - 1.0) if sx < len(spy) and se < len(spy) else np.nan
+    # align SPY to the SAME sessions via as-of (<=) lookup. searchsorted("left") grabs the NEXT
+    # SPY day when a date is missing (holiday/dirty data) -> stock window and market window drift
+    # apart, corrupting the excess. get_indexer(method="ffill") uses the SPY price as-of each date.
+    se, sx = spy.index.get_indexer([ed], method="ffill")[0], spy.index.get_indexer([xd], method="ffill")[0]
+    mkt = (spy.iloc[sx] / spy.iloc[se] - 1.0) if se >= 0 and sx >= 0 else np.nan
     return fwd, fwd - mkt
 
 

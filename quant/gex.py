@@ -38,7 +38,7 @@ def net_gex(symbol: str = "SPY") -> pd.DataFrame:
     daily = opt.groupby("date")["gex"].sum().to_frame("gex")
     daily["spot"] = spot.reindex(daily.index)
     daily["gex_pctile"] = daily["gex"].rolling(30, min_periods=15).apply(
-        lambda w: (w < w[-1]).mean(), raw=True)
+        lambda w: (w <= w[-1]).mean(), raw=True)   # <= so today counts -> percentile can reach 1.0
     out = daily.dropna(subset=["spot"]).reset_index()
     out.to_parquet(IDX / f"_gex_cache_{symbol}.parquet")
     return out

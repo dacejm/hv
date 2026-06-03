@@ -17,9 +17,14 @@ def revenue_roc(symbol: str, asof: pd.Timestamp | None = None) -> pd.DataFrame:
     """Revenue level, YoY growth, and its acceleration (Mat's 1st/2nd derivative)."""
     inc = data.known_income(symbol, asof) if asof is not None else data.income_statement(symbol)
     out = inc[["period_end", "sales", "gross_margin", "net_margin"]].copy()
-    out["growth"] = data.yoy(out, "sales")          # Mat 1st derivative
-    out["growth_accel"] = out["growth"].diff()      # Mat 2nd derivative (markets discount this)
-    out["margin_trend"] = out["gross_margin"].diff()
+    out = out.sort_values("period_end").reset_index(drop=True)
+    out["growth"] = data.yoy(out, "sales")          # Mat 1st derivative (date-matched YoY)
+    # 2nd derivative = change in growth, but ONLY between CONSECUTIVE quarters (~90d apart).
+    # Raw .diff() would subtract non-adjacent quarters when a filing is skipped/dropped --
+    # the same row-offset trap that yoy() was built to avoid. Null the diff across gaps.
+    consec = out["period_end"].diff().dt.days.between(80, 100)
+    out["growth_accel"] = out["growth"].diff().where(consec)   # Mat 2nd derivative
+    out["margin_trend"] = out["gross_margin"].diff().where(consec)
     return out
 
 

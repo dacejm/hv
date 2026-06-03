@@ -504,3 +504,35 @@ DECISION: DO NOT blend. roic recorded as a VALIDATED standalone DIRECTION signal
   stronger of the two here.)
 NEXT (optional): wire roic as a standalone quarterly ranker/sleeve in screen.py/book.py (separate
   from the 21d growth_accel sleeve). Not done yet -- design choice, awaiting go-ahead.
+
+## EXTERNAL AUDIT FIXES + growth_accel DOWNGRADE (2026-06-03 pt.6)
+Acted on an external code audit. Verified each claim against code; fixed 9 real bugs:
+1. roc.growth_accel: raw .diff() -> date-gap-gated (80-100d) so non-consecutive quarters aren't
+   diff'd (the row-offset trap yoy() already guarded). 94.1% of rows retained.
+2. backtest._fwd SPY hedge: searchsorted("left") grabbed NEXT day on missing dates -> misaligned
+   excess. Now get_indexer(method="ffill") as-of. (pead.py: same fix, as-of <=.)
+3. gex gex_pctile: w<w[-1] capped at 29/30 -> w<=w[-1] (reaches 1.0).
+4. intrinsic cost-of-debt: unbounded interest/debt could hit 50000% -> clip [rf, 0.20].
+5. sizing inverse_vol: zero-variance (halted) name gave inf/NaN -> zero-weight it. HRP recursive
+   _leaves (RecursionError >500 assets) -> scipy leaves_list (iterative).
+6. pcr: inf from zero call OI/vol -> replace inf->NaN before rolling z.
+7. regime._fred: half-written cache deadlock -> atomic temp+os.replace + corrupt-cache unlink/refetch.
+8. ingest.strip_boilerplate: min(find) truncated body at a page-1 disclaimer -> rfind + back-half guard.
+NOT changed (with reason): half_kelly_leverage 0.0 edge -- NOT wired into book (book uses vol-target+
+   max_gross cap), so no live effect. HRP single linkage = LdP-canonical (kept). iterrows/lru_cache =
+   perf not correctness (deferred). fetch_research regex-XML / LLM prompt-injection / filename-hash =
+   CONTEXT-ingestion only, never drives a trade (lanes contain the blast radius) -- noted, deferred.
+
+CRITICAL re-measure outcome: fixing #1 prompted a full-universe re-measure of growth_accel ->
+   IC~0.018 t2.44 @21d, t2.71 @63d (passes Bonferroni 2.5 only at 63d; does NOT clear t3). The
+   date-match fix itself barely moved it (6% of values; buggy candidates-panel also showed t2.36).
+   => The long-recorded "growth_accel t5.3 @21d" DOES NOT REPRODUCE on the current full universe;
+   it was an earlier/smaller/curated universe snapshot and was OVERSTATED. growth_accel is now a
+   MODEST signal (downgraded in layers.py). ROIC (t3.81 @63d) is the STRONGEST validated DIRECTION
+   signal -- the project's flagship picker is roic, not growth_accel. Honest, and exactly why the
+   measurement discipline exists. book.py still ranks on growth_accel (screen.py) -> SHOULD migrate
+   the direction layer to roic (or roic-primary) given this -- flagged, not yet done.
+EXEC: framework is research/paper only (book.py emits target weights, no router). Live = IBKR
+   (ib_async), paper-first, with Almgren-Chriss/midpoint exec + Bk07 drawdown protocol as a new
+   EXECUTION lane. Options data: index from local parquet, single-name OI from delayed CBOE JSON
+   (forward-only); 120-DTE term-structure blocked -> needs ORATS/Polygon for historical IV surface.

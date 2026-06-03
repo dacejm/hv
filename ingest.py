@@ -76,8 +76,12 @@ BOILERPLATE = ["Additional Disclaimers", "This message has been prepared by pers
 
 
 def strip_boilerplate(md: str) -> str:
-    """Cut the legal/disclaimer tail -- it's most of the file and pure noise."""
-    cut = min((md.find(m) for m in BOILERPLATE if md.find(m) > 0), default=-1)
+    """Cut the legal/disclaimer TAIL -- it's most of the file and pure noise. Use the LAST
+    occurrence of each marker (rfind) and only cut in the back half of the document: a page-1
+    'This material has been prepared' must not truncate the other 49 pages (min(find) did)."""
+    half = len(md) // 2
+    cuts = [c for m in BOILERPLATE if (c := md.rfind(m)) > half]
+    cut = min(cuts) if cuts else -1
     return md[:cut].rstrip() if cut > 0 else md
 
 
