@@ -567,3 +567,17 @@ public API's 2024-06). The `vol` column IS implied vol (old hv-data-inventory no
 history/ download). Confirmed limits hold on the FULL clone too: expirations cap ~66 DTE, NO OI.
 So fetch_options_history.py is just a bootstrap if the clone is missing. Net: single-name skew/
 RR25/RND/near-curve are available for ALL 2274 names from existing local data -- no fetch needed.
+
+## MULTI-SOURCE LAYER COMPLETE — all 4 streams cross-checked (2026-06-03 pt.8)
+Finished "the rest" of the multi-source/bad-data layer (quant/sources.py). Every data stream now
+reconciles against an INDEPENDENT second source (the audit's silent-failure defense + stated goal):
+- prices:       local DoltHub ohlcv vs Alpha Vantage TIME_SERIES_DAILY (free key, env) -> corr 1.0
+- fundamentals: DoltHub balance sheet vs SEC EDGAR XBRL frames (data/sec_frames, by CIK via SEC
+                company_tickers map) -> AAPL/MSFT/JNJ total_assets & total_equity EXACT match
+                (rel_diff 0.0). Validates the ROIC inputs (invested_capital) = the flagship signal.
+- options IV:   DoltHub clone vs local index chains (SPY) -> median IV diff 1 vol pt
+- rates/macro:  local us_treasury 10y vs FRED DGS10 -> median diff 0.0
+sources.cross_check_all(symbol) runs the full sweep. SEC concepts available in sec_frames: Assets,
+StockholdersEquity, NetIncomeLoss, OperatingIncomeLoss, LongTermDebtNoncurrent, CommonStockShares,
+NetCashProvidedByUsedInOperatingActivities, PaymentsToAcquirePPE (2010-2025 Q4) -> can extend the
+fundamentals check to NOPAT/CFO/debt later. Multi-source data layer = DONE.

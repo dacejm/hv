@@ -20,6 +20,16 @@ import pyarrow.parquet as pq
 from . import data, gex
 
 
+def cross_check_all(symbol: str = "AAPL", year: int = 2023) -> dict:
+    """Run every stream's cross-check at once -- the full multi-source integrity sweep:
+    prices (vs Alpha Vantage), fundamentals (vs SEC EDGAR), options IV (DoltHub vs local index),
+    rates/macro (vs FRED). Each stream reconciled against an independent source."""
+    return {"prices": cross_check_prices(symbol),
+            "fundamentals": cross_check_fundamentals(symbol, year),
+            "options_iv": cross_check_options("SPY"),
+            "rates": cross_check_rates()}
+
+
 def cross_check_options(symbol: str = "SPY", tol: float = 0.03) -> dict:
     """Reconcile DoltHub single-name option IV (data/options_history) against the local index
     chain (data/QQQ_SPY_IWM) on matched (date, expiration, strike, type). Reports overlap size,
@@ -48,6 +58,85 @@ def cross_check_options(symbol: str = "SPY", tol: float = 0.03) -> dict:
             "agree_within_tol": bool(med <= tol),
             "verdict": "sources agree -> DoltHub history trustworthy" if med <= tol
                        else "DIVERGENCE -> investigate before relying on the new source"}
+
+
+SEC_FRAMES = data.DATA / "sec_frames"
+
+
+def _ticker_cik() -> dict:
+    """Ticker -> CIK map from SEC (cached). Free, needs a descriptive User-Agent per SEC policy."""
+    cache = SEC_FRAMES / "_ticker_cik.json"
+    if cache.exists():
+        return json.load(open(cache))
+    try:
+        req = urllib.request.Request("https://www.sec.gov/files/company_tickers.json",
+                                     headers={"User-Agent": "hv-research dacejm4@gmail.com"})
+        raw = json.load(urllib.request.urlopen(req, timeout=30))
+        m = {v["ticker"].upper(): int(v["cik_str"]) for v in raw.values()}
+        json.dump(m, open(cache, "w"))
+        return m
+    except Exception:
+        return {}
+
+
+def cross_check_fundamentals(symbol: str, year: int = 2023, tol: float = 0.05) -> dict:
+    """Reconcile DoltHub balance sheet against SEC EDGAR XBRL frames (second source) on the
+    ROIC inputs -- total assets and stockholders' equity -- for fiscal year-end CY{year}Q4.
+    These feed invested_capital -> ROIC (the flagship DIRECTION signal), so validating them
+    matters most. Small relative diff => the fundamental source is trustworthy."""
+    cik = _ticker_cik().get(symbol.upper())
+    if cik is None:
+        return {"status": f"no CIK for {symbol}"}
+    bs = data.balance_sheet(symbol)
+    if bs.empty:
+        return {"status": f"no DoltHub balance sheet for {symbol}"}
+    out = {"symbol": symbol, "cik": cik, "year": year}
+    checks = {"total_assets": "Assets", "total_equity": "StockholdersEquity"}
+    diffs = []
+    for dolt_col, sec_tag in checks.items():
+        f = SEC_FRAMES / f"{sec_tag}_CY{year}Q4I.json"
+        if not f.exists():
+            continue
+        rec = next((d for d in json.load(open(f))["data"] if d["cik"] == cik), None)
+        if rec is None:
+            continue
+        sec_val, end = float(rec["val"]), pd.Timestamp(rec["end"])
+        row = bs.iloc[(bs["period_end"] - end).abs().argmin()]
+        if abs((row["period_end"] - end).days) > 45:
+            continue
+        dolt_val = float(row[dolt_col]) * 1000 if abs(row[dolt_col]) < sec_val / 100 else float(row[dolt_col])
+        rel = abs(dolt_val - sec_val) / sec_val if sec_val else np.nan
+        diffs.append(rel)
+        out[dolt_col] = {"dolthub": dolt_val, "sec": sec_val, "rel_diff": round(rel, 4)}
+    if not diffs:
+        return {**out, "status": "no overlapping SEC concept/period"}
+    med = float(np.median(diffs))
+    out["median_rel_diff"] = round(med, 4)
+    out["agree_within_tol"] = bool(med <= tol)
+    out["verdict"] = "fundamentals agree -> ROIC inputs trustworthy" if med <= tol \
+        else "DIVERGENCE -> check units/scaling or filing mismatch"
+    return out
+
+
+def cross_check_rates(tol: float = 0.05) -> dict:
+    """Reconcile the local us_treasury 10y against FRED DGS10 (second source) on overlapping
+    recent dates. Median |yield diff| in points; small => the rates/macro source agrees."""
+    from . import regime
+    loc = pd.read_parquet(data.DATA / "rates" / "parquet" / "us_treasury.parquet",
+                          columns=["date", "10_year"]).dropna()
+    loc["date"] = pd.to_datetime(loc["date"])
+    fred = regime._fred_series("DGS10")
+    if fred.empty:
+        return {"status": "FRED DGS10 unavailable (set FRED_API_KEY / cache)"}
+    m = loc.merge(fred.rename("dgs10").reset_index().rename(columns={"index": "date"}), on="date")
+    m = m.tail(500)
+    if len(m) < 20:
+        return {"status": f"insufficient overlap ({len(m)})"}
+    diff = (m["10_year"] - m["dgs10"]).abs()
+    med = float(diff.median())
+    return {"overlap_days": int(len(m)), "median_abs_yield_diff": round(med, 4),
+            "agree_within_tol": bool(med <= tol),
+            "verdict": "rates agree" if med <= tol else "DIVERGENCE -> check rates source"}
 
 
 def cross_check_prices(symbol: str, tol: float = 0.005) -> dict:
