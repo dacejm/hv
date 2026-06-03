@@ -484,3 +484,23 @@ hit 61%, OOS-positive) -- but t=1.52, does NOT clear t3, so it's WATCH/weak, not
 (sue weak ~0.02 @63d). NET: PEAD/surprise = not a validated signal; the TradingView confirmation
 gate adds nothing AND the tradeable direction is the reverse of what hit-rate implied. Nothing wired.
 SAVED standing preference -> memory/proper-tests-always.md (deflated/non-overlapping, never hit-rate).
+
+## ROIC x growth_accel BLEND CHECK (2026-06-03 pt.5) — proper test, blend REJECTED
+check_blend.py, full universe 95,812 rows (74,332 with both signals):
+- within-quarter rank corr(growth_accel, roic) = +0.045 -> essentially uncorrelated (complementary
+  in principle, Grinold says blend should help).
+- BUT measured equal-weight sector-neutral z-blend DILUTES, worse than roic alone at EVERY horizon:
+    growth_accel @21d IC .019 ICIR .41 t2.36 ; roic @63d IC .059 ICIR .626 t3.81 (clears) ;
+    combo @21d ICIR .29 t1.68 / @63d ICIR .23 t1.29  (BELOW both singles).
+  Why: (1) different peak horizons (ga@21, roic@63) -> equal-wt at one horizon mixes strong+weak;
+  (2) their IC TIME-series co-move enough that the cross-sectional independence doesn't diversify;
+  equal-weighting a strong (ICIR .63) with a weak signal drags the composite down. = the screen.py
+  dilution warning, confirmed.
+DECISION: DO NOT blend. roic recorded as a VALIDATED standalone DIRECTION signal @ quarterly(63d);
+  growth_accel stays @21d. layers.py updated (roic -> DIRECTION, standalone, not blended). If a
+  multi-factor combine is ever wanted it must be IC/horizon-aware (Grinold optimal weights), not
+  naive equal-weight -- and must be re-measured. (Note: growth_accel shows t2.36 in the candidates
+  panel vs t5.3 in backtest.replay -- different panel construction/coverage; roic is clearly the
+  stronger of the two here.)
+NEXT (optional): wire roic as a standalone quarterly ranker/sleeve in screen.py/book.py (separate
+  from the 21d growth_accel sleeve). Not done yet -- design choice, awaiting go-ahead.

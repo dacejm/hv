@@ -16,7 +16,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from quant import backtest, data
+from quant import backtest, data, roc
 
 FEATURES = ["acc_quality", "sue", "roic", "hi52"]
 
@@ -42,6 +42,10 @@ def build_panel(symbols: list[str]) -> pd.DataFrame:
         if px.empty or inc.empty:
             continue
         inc = inc.set_index("period_end")
+        try:
+            rev = roc.revenue_roc(sym).set_index("period_end")            # growth_accel (validated)
+        except Exception:
+            rev = None
         cf = data.cash_flow(sym).set_index("period_end") if _exists(sym, "cash_flow_statement") else None
         bs = data.balance_sheet(sym).set_index("period_end") if _exists(sym, "balance_sheet_assets") else None
         sue_df = data.eps_surprise(sym).set_index("period_end") if _exists(sym, "eps_history") else None
@@ -55,6 +59,10 @@ def build_panel(symbols: list[str]) -> pd.DataFrame:
             if e_idx is None or e_idx < 1:
                 continue
             row = {"symbol": sym, "date": known_on, "sector": sect.get(sym, "Unknown")}
+
+            # growth_accel (the existing validated DIRECTION signal) for the blend check
+            row["growth_accel"] = float(rev.loc[pe, "growth_accel"]) if (
+                rev is not None and pe in rev.index and pd.notna(rev.loc[pe, "growth_accel"])) else np.nan
 
             # 52-week-high proximity at entry (trailing 252 sessions, point-in-time)
             window = close.iloc[max(0, e_idx - 252):e_idx]
